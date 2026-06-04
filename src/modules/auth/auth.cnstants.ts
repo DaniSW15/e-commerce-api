@@ -30,5 +30,7 @@ export const AUTH_CONSTANTS = {
         TWO_FACTOR_DISABLED: '2FA disabled successfully',
         PASSWORD_RESET_SENT: 'Password reset email sent',
         PASSWORD_RESET_SUCCESS: 'Password reset successful',
+        USER_NOT_FOUND: 'User not found',
+        ACCOUNT_SUSPENDED: 'Account is suspended',
     },
 } as const;

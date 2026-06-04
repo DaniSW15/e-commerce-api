@@ -14,9 +14,11 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import { TwoFactorGuard } from './guards/two-factor.guard';
 import { PasswordReset } from './entites/password-reset.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SharedModule } from '@/shared/shared.module';
 
 @Module({
   imports: [
+    SharedModule,
     UsersModule,
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken, PasswordReset]),

@@ -1,11 +1,12 @@
+import 'module-alias/register';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import compression = require('compression');
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { v4 as uuidv4 } from 'uuid';
+import { AppModule } from './app.module';
 
 const logger = new Logger('Bootstrap');
 
@@ -81,7 +82,7 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', in: 'header' },
         'JWT-auth',
       )
-      .addServer(`http://localhost:${port}${apiPrefix}`, 'Local Development')
+      .addServer(`http://localhost:${port}`, 'Local Development')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);

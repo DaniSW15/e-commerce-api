@@ -1,11 +1,12 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.entity';
-import { UserProfile } from './entities/user-profile.entity';
-import { LoginAttempt } from './entities/login-attempt.entity';
-import { CreateUserDto } from './dto/create-user.dto';
+import { User } from '@users/entities/user.entity';
+import { UserProfile } from '@users/entities/user-profile.entity';
+import { LoginAttempt } from '@users/entities/login-attempt.entity';
+import { CreateUserDto } from '@users/dto/create-user.dto';
+import { RefreshToken } from '@auth/entites/refresh-token.entity';
 
 @Injectable()
 export class UsersService {
@@ -189,5 +190,20 @@ export class UsersService {
 
     async verifyEmail(userId: string): Promise<void> {
         await this.userRepository.update(userId, { emailVerified: true });
+    }
+
+    // ==================== TOKEN METHODS ====================
+    // Otener usuario con sus tokens activos (no revocados ni expirados)
+    async findByIdWithTokens(id: string): Promise<User> {
+        const user = await this.userRepository.findOne({
+            where: { id },
+            relations: { profile: true, addresses: true, refreshTokens: true },
+        });
+
+        if (!user) throw new NotFoundException('User not found');
+
+        user.refreshTokens = user.refreshTokens.filter(token => !token.revokedAt && token.expiresAt > new Date());
+
+        return user;
     }
 }

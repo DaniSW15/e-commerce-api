@@ -2,10 +2,11 @@ import { ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/com
 import { Reflector } from "@nestjs/core";
 import { AuthGuard } from "@nestjs/passport";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { AuthService } from "../auth.service";
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-    constructor(private reflector: Reflector) {
+    constructor(private reflector: Reflector, private authService: AuthService) {
         super();
     }
 
@@ -16,11 +17,21 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         ]);
         if (isPublic) return true;
 
+        // verificar si el token está en blacklist
+        const request = context.switchToHttp().getRequest();
+        const token = request.headers.autthorization?.replace('Bearer ', '');
+
+        if (token && this.authService.isTokenBlacklisted(token)) {
+            throw new UnauthorizedException('Token has been revoked');
+        }
+
         return super.canActivate(context);
     }
 
     handleRequest(err: any, user: any, info: any) {
         if (err || !user) throw err || new UnauthorizedException('Invalid or expired token');
+
+        if (info?.name === 'TokenExpiredError') throw new UnauthorizedException('Token has expired');
         return user;
     }
 }

@@ -1,21 +1,30 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { UsersService } from '@users/users.service';
 import { ConfigService } from '@nestjs/config';
-import { RefreshToken } from './entites/refresh-token.entity';
-import { PasswordReset } from './entites/password-reset.entity';
-import { Repository } from 'typeorm';
+import { RefreshToken } from '@auth/entites/refresh-token.entity';
+import { PasswordReset } from '@auth/entites/password-reset.entity';
+import { MoreThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RegisterDto } from './dto/register.dto';
-import { AUTH_CONSTANTS } from './auth.cnstants';
-import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from '@auth/dto/register.dto';
+import { AUTH_CONSTANTS } from '@auth/auth.cnstants';
+import { LoginDto } from '@auth/dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { authenticator } from 'otplib';
 import { UnauthorizedException } from '@nestjs/common/exceptions/unauthorized.exception';
 import { JwtService } from '@nestjs/jwt';
+import { RedisService } from '@/common/services/redis/redis.service';
+import * as speakeasy from 'speakeasy';
+import * as QRCode from 'qrcode';
+import { User } from '../users/entities/user.entity';
+import { Login2FADto } from './dto/login-2fa.dto';
 
 @Injectable()
 export class AuthService {
+    private tokenBlacklist: Set<string> = new Set();
+    private readonly otplibAuthenticator = authenticator;
+
+
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
@@ -24,6 +33,9 @@ export class AuthService {
         private readonly refreshTokenRepository: Repository<RefreshToken>,
         @InjectRepository(PasswordReset)
         private readonly passwordResetRepository: Repository<PasswordReset>,
+        private readonly redisService: RedisService,
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
     ) { }
 
     // ==================== REGISTRO ====================
@@ -58,19 +70,25 @@ export class AuthService {
         const user = await this.usersService.findByEmail(loginDto.email);
 
         if (!user) {
-            throw new UnauthorizedException(AUTH_CONSTANTS.MESSAGES.INVALID_CREDENTIALS);
+            throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Verificar bloqueo
         if (user.status === 'locked') {
-            throw new UnauthorizedException(AUTH_CONSTANTS.MESSAGES.ACCOUNT_LOCKED);
+            throw new UnauthorizedException('Account locked');
         }
 
-        // Validar contraseña
+        if (user.status === 'deleted') {
+            throw new NotFoundException('User not found');
+        }
+
+        if (user.status === 'suspended') {
+            throw new ForbiddenException('Account suspended');
+        }
+
         const isValidPassword = await bcrypt.compare(loginDto.password, user.password);
         if (!isValidPassword) {
             await this.usersService.recordLoginAttempt(user.id, false, ipAddress);
-            throw new UnauthorizedException(AUTH_CONSTANTS.MESSAGES.INVALID_CREDENTIALS);
+            throw new UnauthorizedException('Invalid credentials');
         }
 
         // Verificar 2FA
@@ -83,7 +101,7 @@ export class AuthService {
                 };
             }
 
-            const isValid2FA = await this.verifyTwoFactorCode(user, loginDto.twoFactorCode);
+            const isValid2FA = await this.verifyTwoFactorCode(user.id, loginDto.twoFactorCode);
             if (!isValid2FA) {
                 throw new UnauthorizedException('Invalid 2FA code');
             }
@@ -111,6 +129,10 @@ export class AuthService {
             sub: user.id,
             email: user.email,
             role: user.role,
+            permissions: this.getUserPermissions(user.role), // ← Agregar permisos
+            deviceId: deviceInfo ? this.hashDeviceInfo(deviceInfo) : undefined,
+            iat: Math.floor(Date.now() / 1000),
+            jti: crypto.randomBytes(16).toString('hex'), // ← ID único del token
         };
 
         const accessToken = this.jwtService.sign(payload, {
@@ -126,6 +148,20 @@ export class AuthService {
             expires_in: 900, // 15 minutos en segundos
             token_type: 'Bearer',
         };
+    }
+
+    private getUserPermissions(role: string): string[] {
+        const permissions = {
+            customer: ['products:read', 'orders:create', 'orders:read'],
+            seller: ['products:read', 'products:create', 'products:update', 'orders:read'],
+            admin: ['*:read', '*:create', '*:update', '*:delete'],
+            super_admin: ['*:*'],
+        };
+        return permissions[role] || [];
+    }
+
+    private hashDeviceInfo(deviceInfo: string): string {
+        return crypto.createHash('sha256').update(deviceInfo).digest('hex').substring(0, 16);
     }
 
     private async createRefreshToken(user: any, deviceInfo?: string, ipAddress?: string) {
@@ -182,7 +218,7 @@ export class AuthService {
         return { success: true, revokedCount: tokens.length };
     }
 
-    async logout(refreshToken: string) {
+    async logout(refreshToken: string, accessToken?: string) {
         const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
 
         const storedToken = await this.refreshTokenRepository.findOne({
@@ -195,33 +231,69 @@ export class AuthService {
             await this.refreshTokenRepository.save(storedToken);
         }
 
+        // Blacklist acces token
+        if (accessToken) {
+            try {
+                const decoded = this.jwtService.decode(accessToken) as any;
+                if (decoded && decoded.exp) {
+                    const ttl = decoded.exp - Math.floor(Date.now() / 1000);
+                    if (ttl > 0) {
+                        this.tokenBlacklist.add(accessToken);
+                        setTimeout(() => this.tokenBlacklist.delete(accessToken), ttl * 1000);
+                    }
+                }
+            } catch (e) {
+                console.error('Error decoding access token for blacklist:', e);
+            }
+        }
+
         return { success: true };
+    }
+
+    async isTokenBlacklisted(token: string): Promise<boolean> {
+        return this.tokenBlacklist.has(token);
     }
 
     // ==================== 2FA ====================
     async generateTwoFactorSecret(userId: string) {
-        const user = await this.usersService.findById(userId);
-        const secret = authenticator.generateSecret();
-        const otpauth = authenticator.keyuri(user.email, AUTH_CONSTANTS.TOTP_ISSUER, secret);
+        const secret = speakeasy.generateSecret({ name: 'E-Commerce' });
 
-        return {
-            secret,
-            qrCodeUrl: otpauth,
-        };
+        // Guardar en Redis temporalmente
+        await this.redisService.setex(`2fa:setup:${userId}`, 600, secret.base32);
+
+        const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+        return { qrCodeUrl }; // NO devolver el secret
     }
 
-    async enableTwoFactor(userId: string, code: string, secret: string) {
-        const isValid = authenticator.verify({
+    // auth.service.ts - enableTwoFactor
+
+    async enableTwoFactor(userId: string, code: string): Promise<any> {
+        // 1. Obtener de Redis
+        const secret = await this.redisService.get(`2fa:setup:${userId}`);
+        if (!secret) {
+            throw new BadRequestException('2FA setup expired or not started');
+        }
+
+        // 2. Verificar código
+        const isValid = this.otplibAuthenticator.verify({
+            secret,
             token: code,
-            secret: secret,
         });
 
         if (!isValid) {
             throw new BadRequestException('Invalid 2FA code');
         }
 
-        await this.usersService.enableTwoFactor(userId, secret);
-        return { success: true, message: AUTH_CONSTANTS.MESSAGES.TWO_FACTOR_ENABLED };
+        // 3. Guardar EN LA BASE DE DATOS (crítico)
+        await this.userRepository.update(userId, {
+            twoFactorSecret: secret,      // ← ASEGURAR QUE SE GUARDA
+            twoFactorEnabled: true,
+        });
+
+        // 4. Limpiar Redis
+        await this.redisService.del(`2fa:setup:${userId}`);
+
+        return { message: '2FA enabled successfully' };
     }
 
     async disableTwoFactor(userId: string, code: string) {
@@ -240,24 +312,28 @@ export class AuthService {
         return { success: true, message: AUTH_CONSTANTS.MESSAGES.TWO_FACTOR_DISABLED };
     }
 
-    async verifyTwoFactorCode(user: any, code: string): Promise<boolean> {
-        return authenticator.verify({
-            token: code,
-            secret: user.twoFactorSecret,
-        });
-    }
+    // ==================== GENERATE TEMP TOKEN ====================
+    private async generateTempToken(user: any): Promise<string> {
+        const tempToken = this.jwtService.sign(
+            {
+                sub: user.id,
+                temp: true,
+            },
+            {
+                expiresIn: '5m',
+                secret: this.configService.get('JWT_TEMP_SECRET'),
+            }
+        );
 
-    private async generateTempToken(user: any) {
-        const payload = {
-            sub: user.id,
-            temp: true,
-            expiresIn: '5m',
-        };
+        // Guardar hash en Redis para single-use
+        const tokenHash = crypto.createHash('sha256').update(tempToken).digest('hex');
+        await this.redisService.setex(
+            `2fa:temp:${tokenHash}`,
+            300, // 5 min
+            user.id
+        );
 
-        return this.jwtService.sign(payload, {
-            expiresIn: '5m',
-            secret: this.configService.get('JWT_ACCESS_SECRET'),
-        });
+        return tempToken;
     }
 
     // ==================== PASSWORD RESET ====================
@@ -336,5 +412,123 @@ export class AuthService {
         // Implementar envío de email
         console.log(`Password reset token for ${email}: ${token}`);
         // Aquí integrar con SendGrid o SES
+    }
+
+    async revokeToken(refreshToken: string, userId: string) {
+        const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+        const storedToken = await this.refreshTokenRepository.findOne({
+            where: { tokenHash, userId },
+        });
+
+        if (!storedToken) throw new NotFoundException('Token not found');
+
+
+        storedToken.revokedAt = new Date();
+        storedToken.revokedReason = 'User revoke specific token';
+        await this.refreshTokenRepository.save(storedToken);
+
+        return { success: true, message: 'Token revoked successfully' };
+    }
+
+    async getActiveTokens(userId: string) {
+        const activeTokens = await this.refreshTokenRepository.find({
+            where: { userId, revokedAt: null },
+            select: { id: true, deviceInfo: true, ipAddress: true, createdAt: true, expiresAt: true },
+        });
+
+        return {
+            total: activeTokens.length,
+            tokens: activeTokens,
+        };
+    }
+
+    async countActiveDevices(userId: string): Promise<number> {
+        const result = await this.refreshTokenRepository.count({
+            where: {
+                userId,
+                revokedAt: null,
+                expiresAt: MoreThan(new Date()),
+            },
+        });
+        return result;
+    }
+
+    // ==================== LOGIN WITH 2FA ====================
+    async loginWith2FA(dto: Login2FADto, ipAddress?: string) {
+        // 1. Verificar JWT temp
+        let payload;
+        try {
+            payload = this.jwtService.verify(dto.tempToken, {
+                secret: this.configService.get('JWT_TEMP_SECRET'),
+            });
+        } catch {
+            throw new UnauthorizedException('Invalid or expired temp token');
+        }
+
+        // 2. Verificar que es temp token
+        if (!payload.temp) {
+            throw new UnauthorizedException('Invalid token type');
+        }
+
+        // 3. Verificar single-use en Redis
+        const tokenHash = crypto.createHash('sha256').update(dto.tempToken).digest('hex');
+        const userId = await this.redisService.get(`2fa:temp:${tokenHash}`);
+
+        if (!userId) {
+            throw new UnauthorizedException('Token already used or expired');
+        }
+
+        // 4. Eliminar de Redis (single-use)
+        await this.redisService.del(`2fa:temp:${tokenHash}`);
+
+        // 5. Verificar 2FA
+        const isValid2FA = await this.verifyTwoFactorCode(payload.sub, dto.twoFactorCode);
+        if (!isValid2FA) {
+            throw new UnauthorizedException('Invalid 2FA code');
+        }
+
+        // 6. Buscar usuario y generar tokens
+        const user = await this.usersService.findById(payload.sub);
+        if (!user || user.status === 'deleted') {
+            throw new NotFoundException('User not found');
+        }
+
+        await this.usersService.recordLoginAttempt(user.id, true, ipAddress);
+        await this.usersService.updateLastLogin(user.id);
+
+        const tokens = await this.generateTokens(user, dto.deviceInfo, ipAddress);
+
+        return {
+            ...tokens,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                twoFactorEnabled: user.twoFactorEnabled,
+            },
+        };
+    }
+
+    // ==================== VERIFY 2FA CODE ====================
+    async verifyTwoFactorCode(userId: string, code: string): Promise<boolean> {
+        const user = await this.usersService.findById(userId);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (!user.twoFactorEnabled) {
+            throw new BadRequestException('2FA is not enabled for this user');
+        }
+
+        if (!user.twoFactorSecret) {
+            throw new BadRequestException('2FA secret not found. Please re-enable 2FA.');
+        }
+
+        return this.otplibAuthenticator.verify({
+            secret: user.twoFactorSecret,
+            token: code,
+        });
     }
 }
