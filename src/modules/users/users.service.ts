@@ -1,12 +1,16 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '@users/entities/user.entity';
+import { User, UserStatus } from '@users/entities/user.entity';
 import { UserProfile } from '@users/entities/user-profile.entity';
 import { LoginAttempt } from '@users/entities/login-attempt.entity';
 import { CreateUserDto } from '@users/dto/create-user.dto';
 import { RefreshToken } from '@auth/entites/refresh-token.entity';
+import { UserAddress } from './entities/user-address.entity';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +21,8 @@ export class UsersService {
         private readonly profileRepository: Repository<UserProfile>,
         @InjectRepository(LoginAttempt)
         private readonly loginAttemptRepository: Repository<LoginAttempt>,
+        @InjectRepository(UserAddress)
+        private readonly addressRepository: Repository<UserAddress>,
     ) { }
 
     // ==================== CRUD BÁSICO ====================
@@ -43,10 +49,11 @@ export class UsersService {
         return this.userRepository.save(user);
     }
 
-    async findByEmail(email: string): Promise<User | null> {
+    // For AuthService
+    async findByEmail(email: string) {
         return this.userRepository.findOne({
             where: { email },
-            relations: { profile: true, addresses: true }
+            select: { id: true, email: true, password: true, role: true, status: true, twoFactorEnabled: true, twoFactorSecret: true, lastLoginAt: true },
         });
     }
 
@@ -88,23 +95,10 @@ export class UsersService {
             firstName: profileData.firstName,
             lastName: profileData.lastName,
             phone: profileData.phone,
-            dateOfBirth: profileData.dateOfBirth,
+            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth) : undefined,
             preferences: profileData.preferences || {},
         });
 
-        return this.profileRepository.save(profile);
-    }
-
-    async updateProfile(userId: string, profileData: Partial<UserProfile>): Promise<UserProfile> {
-        const profile = await this.profileRepository.findOne({
-            where: { userId },
-        });
-
-        if (!profile) {
-            return this.createProfile(userId, profileData);
-        }
-
-        Object.assign(profile, profileData);
         return this.profileRepository.save(profile);
     }
 
@@ -205,5 +199,163 @@ export class UsersService {
         user.refreshTokens = user.refreshTokens.filter(token => !token.revokedAt && token.expiresAt > new Date());
 
         return user;
+    }
+
+    // ==================== PROFILE METHODS ====================
+    async getProfile(userId: string): Promise<UserProfile> {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: { profile: true },
+        });
+
+        if (!user) throw new NotFoundException('User not found');
+
+        return this.sanitizeUser(user);
+    }
+
+    // users.service.ts - CORREGIR
+
+    async updateProfile(userId: string, profileData: UpdateProfileDto): Promise<UserProfile> {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: { profile: true },
+        });
+
+        if (!user) throw new NotFoundException('User not found');
+
+        if (!user.profile) {
+            user.profile = new UserProfile();
+            user.profile.userId = userId;  // ← Asignar userId manualmente
+        }
+
+        // Solo copiar campos permitidos del DTO
+        if (profileData.firstName !== undefined) user.profile.firstName = profileData.firstName;
+        if (profileData.lastName !== undefined) user.profile.lastName = profileData.lastName;
+        if (profileData.phone !== undefined) user.profile.phone = profileData.phone;
+        if (profileData.dateOfBirth !== undefined) {
+            user.profile.dateOfBirth = profileData.dateOfBirth ? new Date(profileData.dateOfBirth) : null;
+        }
+        if (profileData.avatarUrl !== undefined) user.profile.avatarUrl = profileData.avatarUrl;
+        if (profileData.preferences !== undefined) user.profile.preferences = profileData.preferences;
+
+        await this.profileRepository.save(user.profile);
+
+        return this.sanitizeUser(user);
+    }
+
+    async getAddresses(userId: string): Promise<UserAddress[]> {
+        return this.addressRepository.find({
+            where: { user: { id: userId } },
+            order: { isDefault: 'DESC', createdAt: 'DESC' },
+        });
+    }
+
+    async createAddress(userId: string, dto: CreateAddressDto) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        // If setting as default, unset others
+        if (dto.isDefault) {
+            await this.addressRepository.update(
+                { user: { id: userId }, type: dto.type },
+                { isDefault: false },
+            );
+        }
+
+        const address = this.addressRepository.create({
+            ...dto,
+            user,
+        });
+
+        return this.addressRepository.save(address);
+    }
+
+    async updateAddress(userId: string, addressId: string, dto: UpdateAddressDto) {
+        const address = await this.addressRepository.findOne({
+            where: { id: addressId, user: { id: userId } },
+        });
+
+        if (!address) throw new NotFoundException('Address not found');
+
+        // If setting as default, unset others
+        if (dto.isDefault) {
+            await this.addressRepository.update(
+                { user: { id: userId }, type: address.type },
+                { isDefault: false },
+            );
+        }
+
+        Object.assign(address, dto);
+        return this.addressRepository.save(address);
+    }
+
+    async deleteAddress(userId: string, addressId: string) {
+        const address = await this.addressRepository.findOne({
+            where: { id: addressId, user: { id: userId } },
+        });
+
+        if (!address) throw new NotFoundException('Address not found');
+
+        await this.addressRepository.remove(address);
+        return { message: 'Address deleted successfully' };
+    }
+
+    async deleteAccount(userId: string, reason?: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: { profile: true },
+        });
+
+        if (!user) throw new NotFoundException('User not found');
+
+        // Anonymize profile
+        if (user.profile) {
+            Object.assign(user.profile, {
+                firstName: 'Deleted',
+                lastName: 'User',
+                phone: null,
+                avatarUrl: null,
+            });
+            await this.profileRepository.save(user.profile);
+        }
+
+        // Soft delete user
+        await this.userRepository.softDelete(userId);
+
+        // Update to anonymized email
+        await this.userRepository.update(userId, {
+            email: `deleted_${userId}@anonymized.local`,
+            password: 'ANONYMIZED',
+            status: UserStatus.DELETED,
+        });
+
+        return { message: 'Account scheduled for deletion', deletionDate: new Date() };
+    }
+
+    async restoreAccount(userId: string) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            withDeleted: true,
+        });
+
+        if (!user || !user.deletedAt) {
+            throw new NotFoundException('Account cannot be restored');
+        }
+
+        // Check 30-day window
+        const daysSinceDelete = (Date.now() - user.deletedAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceDelete > 30) {
+            throw new ForbiddenException('Account permanently deleted');
+        }
+
+        await this.userRepository.restore(userId);
+        return { message: 'Account restored successfully' };
+    }
+
+    // ==================== HELPERS ====================
+
+    private sanitizeUser(user: User) {
+        const { password, twoFactorSecret, ...safe } = user as any;
+        return safe;
     }
 }

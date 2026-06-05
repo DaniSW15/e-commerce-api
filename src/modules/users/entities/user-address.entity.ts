@@ -1,5 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
+
+export enum AddressType {
+    SHIPPING = 'shipping',
+    BILLING = 'billing',
+}
 
 @Entity('user_addresses')
 export class UserAddress {
@@ -9,8 +14,15 @@ export class UserAddress {
     @Column({ type: 'uuid' })
     userId: string;
 
-    @Column()
-    type: string;
+    @Column({
+        type: 'enum',
+        enum: AddressType,
+        default: AddressType.SHIPPING,
+    })
+    type: AddressType;
+
+    @Column({ nullable: true })
+    label: string; // "Casa", "Oficina"
 
     @Column()
     street: string;
@@ -29,6 +41,12 @@ export class UserAddress {
 
     @Column({ default: false })
     isDefault: boolean;
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @UpdateDateColumn()
+    updatedAt: Date;
 
     @ManyToOne(() => User, user => user.addresses)
     @JoinColumn({ name: 'userId' })

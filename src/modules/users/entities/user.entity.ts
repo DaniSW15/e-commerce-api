@@ -14,6 +14,20 @@ import { UserAddress } from './user-address.entity';
 import { LoginAttempt } from './login-attempt.entity';
 import { RefreshToken } from '../../auth/entites/refresh-token.entity';
 
+export enum UserStatus {
+    ACTIVE = 'active',
+    SUSPENDED = 'suspended',
+    LOCKED = 'locked',
+    DELETED = 'deleted',
+}
+
+export enum UserRole {
+    CUSTOMER = 'customer',
+    SELLER = 'seller',
+    ADMIN = 'admin',
+    SUPER_ADMIN = 'super_admin',
+}
+
 @Entity('users')
 export class User {
     @PrimaryGeneratedColumn('uuid')
@@ -26,10 +40,18 @@ export class User {
     @Column()
     password: string;
 
-    @Column({ type: 'varchar', default: 'customer' })
+    @Column({
+        type: 'enum',
+        enum: UserRole,
+        default: UserRole.CUSTOMER,
+    })
     role: string;
 
-    @Column({ default: 'active' })
+    @Column({
+        type: 'enum',
+        enum: UserStatus,
+        default: UserStatus.ACTIVE,
+    })
     status: string;
 
     @Column({ default: false })

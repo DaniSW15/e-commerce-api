@@ -22,6 +22,7 @@ import { Skip2FA } from './decorators/skip-2fa.decorator';
 import { RefreshTokenDto } from './dto/refresh-ttoken.dto';
 import { RedisService } from '@/common/services/redis/redis.service';
 import { Login2FADto } from './dto/login-2fa.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -38,6 +39,7 @@ export class AuthController {
     }
 
     @Public()
+     @Throttle({ default: { limit: 5, ttl: 300000 } }) // 5 intentos en 5 min (300000 ms)
     @Post('login')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Login user' })
@@ -152,6 +154,7 @@ export class AuthController {
     }
 
     @Public()
+    @Throttle({ default: { limit: 3, ttl: 3600000 } }) // 3 intentos en 1 hora (3600000 ms)
     @Post('forgot-password')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Request password reset' })

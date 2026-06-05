@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
@@ -18,8 +18,8 @@ import { SharedModule } from '@/shared/shared.module';
 
 @Module({
   imports: [
-    SharedModule,
-    UsersModule,
+  SharedModule,
+  forwardRef(() => UsersModule),
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken, PasswordReset]),
     JwtModule.registerAsync({

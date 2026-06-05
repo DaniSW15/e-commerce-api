@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { User } from "./user.entity";
 
 @Entity('user_profiles')
@@ -25,7 +25,17 @@ export class UserProfile {
     avatarUrl: string;
 
     @Column({ type: 'jsonb', default: {} })
-    preferences: Record<string, any>;
+    preferences: {
+        language?: string;
+        currency?: string;
+        notifications?: boolean;
+    };
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @UpdateDateColumn()
+    updatedAt: Date;
 
     @OneToOne(() => User, user => user.profile)
     @JoinColumn({ name: 'userId' })

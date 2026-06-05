@@ -12,10 +12,24 @@ import { PasswordReset } from '@modules/auth/entites/password-reset.entity';
 import { UserSubscriber } from '@modules/users/subscribers/user.subscriber';
 import { RedisService } from './common/services/redis/redis.service';
 import { SharedModule } from './shared/shared.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { HealthController } from './health/health.controller';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: config.get('THROTTLE_TTL', 60000),      // 60 segundos
+            limit: config.get('THROTTLE_LIMIT', 100),     // 100 requests por IP
+          },
+        ],
+      }),
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -42,8 +56,14 @@ import { SharedModule } from './shared/shared.module';
     SharedModule,
     UsersModule,
     AuthModule,
+    HealthModule,
   ],
   controllers: [],
-  providers: [RedisService],
+  providers: [RedisService,
+    {
+      provide: 'APP_GUARD',
+      useClass: ThrottlerGuard
+    }
+  ],
 })
 export class AppModule { }

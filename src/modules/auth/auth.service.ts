@@ -123,6 +123,62 @@ export class AuthService {
         };
     }
 
+    // ==================== LOGIN WITH 2FA ====================
+    async loginWith2FA(dto: Login2FADto, ipAddress?: string) {
+        // 1. Verificar JWT temp
+        let payload;
+        try {
+            payload = this.jwtService.verify(dto.tempToken, {
+                secret: this.configService.get('JWT_TEMP_SECRET'),
+            });
+        } catch {
+            throw new UnauthorizedException('Invalid or expired temp token');
+        }
+
+        // 2. Verificar que es temp token
+        if (!payload.temp) {
+            throw new UnauthorizedException('Invalid token type');
+        }
+
+        // 3. Verificar single-use en Redis
+        const tokenHash = crypto.createHash('sha256').update(dto.tempToken).digest('hex');
+        const userId = await this.redisService.get(`2fa:temp:${tokenHash}`);
+
+        if (!userId) {
+            throw new UnauthorizedException('Token already used or expired');
+        }
+
+        // 4. Eliminar de Redis (single-use)
+        await this.redisService.del(`2fa:temp:${tokenHash}`);
+
+        // 5. Verificar 2FA
+        const isValid2FA = await this.verifyTwoFactorCode(payload.sub, dto.twoFactorCode);
+        if (!isValid2FA) {
+            throw new UnauthorizedException('Invalid 2FA code');
+        }
+
+        // 6. Buscar usuario y generar tokens
+        const user = await this.usersService.findById(payload.sub);
+        if (!user || user.status === 'deleted') {
+            throw new NotFoundException('User not found');
+        }
+
+        await this.usersService.recordLoginAttempt(user.id, true, ipAddress);
+        await this.usersService.updateLastLogin(user.id);
+
+        const tokens = await this.generateTokens(user, dto.deviceInfo, ipAddress);
+
+        return {
+            ...tokens,
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                twoFactorEnabled: user.twoFactorEnabled,
+            },
+        };
+    }
+
     // ==================== TOKEN MANAGEMENT ====================
     async generateTokens(user: any, deviceInfo?: string, ipAddress?: string) {
         const payload = {
@@ -452,62 +508,6 @@ export class AuthService {
             },
         });
         return result;
-    }
-
-    // ==================== LOGIN WITH 2FA ====================
-    async loginWith2FA(dto: Login2FADto, ipAddress?: string) {
-        // 1. Verificar JWT temp
-        let payload;
-        try {
-            payload = this.jwtService.verify(dto.tempToken, {
-                secret: this.configService.get('JWT_TEMP_SECRET'),
-            });
-        } catch {
-            throw new UnauthorizedException('Invalid or expired temp token');
-        }
-
-        // 2. Verificar que es temp token
-        if (!payload.temp) {
-            throw new UnauthorizedException('Invalid token type');
-        }
-
-        // 3. Verificar single-use en Redis
-        const tokenHash = crypto.createHash('sha256').update(dto.tempToken).digest('hex');
-        const userId = await this.redisService.get(`2fa:temp:${tokenHash}`);
-
-        if (!userId) {
-            throw new UnauthorizedException('Token already used or expired');
-        }
-
-        // 4. Eliminar de Redis (single-use)
-        await this.redisService.del(`2fa:temp:${tokenHash}`);
-
-        // 5. Verificar 2FA
-        const isValid2FA = await this.verifyTwoFactorCode(payload.sub, dto.twoFactorCode);
-        if (!isValid2FA) {
-            throw new UnauthorizedException('Invalid 2FA code');
-        }
-
-        // 6. Buscar usuario y generar tokens
-        const user = await this.usersService.findById(payload.sub);
-        if (!user || user.status === 'deleted') {
-            throw new NotFoundException('User not found');
-        }
-
-        await this.usersService.recordLoginAttempt(user.id, true, ipAddress);
-        await this.usersService.updateLastLogin(user.id);
-
-        const tokens = await this.generateTokens(user, dto.deviceInfo, ipAddress);
-
-        return {
-            ...tokens,
-            user: {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                twoFactorEnabled: user.twoFactorEnabled,
-            },
-        };
     }
 
     // ==================== VERIFY 2FA CODE ====================
