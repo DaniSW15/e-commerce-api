@@ -13,8 +13,11 @@ import { UserSubscriber } from '@modules/users/subscribers/user.subscriber';
 import { RedisService } from './common/services/redis/redis.service';
 import { SharedModule } from './shared/shared.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { HealthController } from './health/health.controller';
 import { HealthModule } from './health/health.module';
+import { ProductsModule } from './modules/products/products.module';
+import { Product } from './modules/products/entities/product.entity';
+import { Category } from './modules/products/entities/category.entity';
+import { ProductImage } from './modules/products/entities/product-image.entity';
 
 @Module({
   imports: [
@@ -39,17 +42,15 @@ import { HealthModule } from './health/health.module';
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'password'),
         database: configService.get<string>('DB_NAME', 'ecommerce_dev'),
-        entities: [
-          User,
-          UserProfile,
-          UserAddress,
-          LoginAttempt,
-          RefreshToken,
-          PasswordReset,
-        ],
+        autoLoadEntities: true,
         subscribers: [UserSubscriber],
         synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
         logging: configService.get<string>('DB_LOGGING') === 'true',
+        // ✅ SINTAXIS CORRECTA - objeto, no string
+        invalidWhereValuesBehavior: {
+          null: 'sql-null',
+          undefined: 'throw',
+        },
       }),
       inject: [ConfigService],
     }),
@@ -57,6 +58,7 @@ import { HealthModule } from './health/health.module';
     UsersModule,
     AuthModule,
     HealthModule,
+    ProductsModule,
   ],
   controllers: [],
   providers: [RedisService,
