@@ -3,24 +3,17 @@ import { UsersModule } from '@modules/users/users.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from '@modules/users/entities/user.entity';
-import { UserProfile } from '@modules/users/entities/user-profile.entity';
-import { UserAddress } from '@modules/users/entities/user-address.entity';
-import { LoginAttempt } from '@modules/users/entities/login-attempt.entity';
-import { RefreshToken } from '@modules/auth/entites/refresh-token.entity';
-import { PasswordReset } from '@modules/auth/entites/password-reset.entity';
 import { UserSubscriber } from '@modules/users/subscribers/user.subscriber';
 import { RedisService } from './common/services/redis/redis.service';
 import { SharedModule } from './shared/shared.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HealthModule } from './health/health.module';
 import { ProductsModule } from './modules/products/products.module';
-import { Product } from './modules/products/entities/product.entity';
-import { Category } from './modules/products/entities/category.entity';
-import { ProductImage } from './modules/products/entities/product-image.entity';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MediaModule } from './modules/media/media.module';
+import { BullModule } from '@nestjs/bull';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +28,12 @@ import { MediaModule } from './modules/media/media.module';
           },
         ],
       }),
+    }),
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+      },
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -65,6 +64,7 @@ import { MediaModule } from './modules/media/media.module';
     OrdersModule,
     PaymentsModule,
     MediaModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [RedisService,

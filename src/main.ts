@@ -122,6 +122,16 @@ async function bootstrap() {
   }
 }
 
+console.log('=== MAIN STARTING ===');
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED:', err);
+  process.exit(1);
+});
+
 bootstrap().catch((err) => {
   logger.error('Failed to start application', err.stack);
   process.exit(1);
