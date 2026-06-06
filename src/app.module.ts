@@ -21,6 +21,8 @@ import { ProductImage } from './modules/products/entities/product-image.entity';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MediaModule } from './modules/media/media.module';
+import { BullModule } from '@nestjs/bull';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +37,12 @@ import { MediaModule } from './modules/media/media.module';
           },
         ],
       }),
+    }),
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+      },
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -65,6 +73,7 @@ import { MediaModule } from './modules/media/media.module';
     OrdersModule,
     PaymentsModule,
     MediaModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [RedisService,
