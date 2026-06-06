@@ -20,6 +20,7 @@ import { Category } from './modules/products/entities/category.entity';
 import { ProductImage } from './modules/products/entities/product-image.entity';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ProductsModule,
     OrdersModule,
     PaymentsModule,
+    MediaModule,
   ],
   controllers: [],
   providers: [RedisService,
