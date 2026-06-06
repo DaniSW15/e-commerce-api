@@ -51,7 +51,7 @@ export class ProductsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN, UserRole.SELLER, UserRole.DEVELOPER)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create product' })
   async create(@Body() dto: CreateProductDto) {

@@ -23,8 +23,10 @@ export enum UserStatus {
 
 export enum UserRole {
     CUSTOMER = 'customer',
-    SELLER = 'seller',
     ADMIN = 'admin',
+    DEVELOPER = 'developer',
+    SELLER = 'seller',
+    SUPPORT = 'support',
     SUPER_ADMIN = 'super_admin',
 }
 
@@ -45,7 +47,20 @@ export class User {
         enum: UserRole,
         default: UserRole.CUSTOMER,
     })
-    role: string;
+    role: UserRole;
+
+    @Column({ nullable: true })
+    workEmail: string; // admin@company.com, developer@company.com, etc.
+
+    @Column({ type: 'jsonb', default: {} })
+    metadata: {
+        department?: string;    // 'engineering', 'sales', 'support', 'management'
+        position?: string;      // 'junior', 'senior', 'lead', 'manager', 'director'
+        team?: string;          // 'backend', 'frontend', 'devops', 'qa'
+        notificationsEmail?: string;
+        slackUsername?: string;
+        phoneWork?: string;
+    };
 
     @Column({
         type: 'enum',

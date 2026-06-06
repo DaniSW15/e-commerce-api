@@ -16,7 +16,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '@/common/services/redis/redis.service';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { Login2FADto } from './dto/login-2fa.dto';
 
 @Injectable()
@@ -40,9 +40,14 @@ export class AuthService {
 
     // ==================== REGISTRO ====================
     async register(registerDto: RegisterDto) {
+        const hashedPassword = await bcrypt.hash(registerDto.password, 12);
+
         const user = await this.usersService.create({
             email: registerDto.email,
-            password: registerDto.password,
+            password: hashedPassword,
+            role: registerDto.role || UserRole.CUSTOMER,
+            workEmail: registerDto.workEmail,
+            metadata: registerDto.metadata,
         });
 
         // Crear perfil si se proporcionaron datos adicionales
@@ -61,6 +66,8 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 role: user.role,
+                workEmail: user.workEmail,
+                metadata: user.metadata,
             },
         };
     }

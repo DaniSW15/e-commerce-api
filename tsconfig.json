@@ -18,11 +18,12 @@
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "moduleResolution": "node",
     "paths": {
       "@/*": ["./src/*"],
       "@modules/*": ["./src/modules/*"],
       "@auth/*": ["./src/modules/auth/*"],
-      "@users/*": ["./src/modules/users/*"],  
+      "@users/*": ["./src/modules/users/*"],
       "@common/*": ["./src/common/*"],
       "@config/*": ["./src/config/*"]
     }

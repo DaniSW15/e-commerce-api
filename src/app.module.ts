@@ -18,6 +18,8 @@ import { ProductsModule } from './modules/products/products.module';
 import { Product } from './modules/products/entities/product.entity';
 import { Category } from './modules/products/entities/category.entity';
 import { ProductImage } from './modules/products/entities/product-image.entity';
+import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -59,6 +61,8 @@ import { ProductImage } from './modules/products/entities/product-image.entity';
     AuthModule,
     HealthModule,
     ProductsModule,
+    OrdersModule,
+    PaymentsModule,
   ],
   controllers: [],
   providers: [RedisService,

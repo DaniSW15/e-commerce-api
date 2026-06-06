@@ -1,5 +1,6 @@
+import { UserRole } from "@/modules/users/entities/user.entity";
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsOptional, IsString, MinLength } from "class-validator";
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
 
 export class RegisterDto {
     @ApiProperty({ example: 'user@example.com' })
@@ -20,4 +21,22 @@ export class RegisterDto {
     @IsOptional()
     @IsString()
     lastName?: string;
+
+    @ApiProperty({ enum: UserRole, example: 'customer', required: false })
+    @IsOptional()
+    @IsEnum(UserRole)
+    role?: UserRole = UserRole.CUSTOMER;
+
+    @ApiProperty({ required: false, example: 'developer@company.com' })
+    @IsOptional()
+    @IsEmail()
+    workEmail?: string;
+
+    @ApiProperty({ required: false, example: { department: 'engineering', position: 'senior' } })
+    @IsOptional()
+    metadata?: {
+        department?: string;
+        position?: string;
+        team?: string;
+    };
 }
