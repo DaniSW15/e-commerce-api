@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './test-utils';
 
-describe('OrdersController (e2e)', () => {
+describe('AppController (e2e)', () => {
     let app: INestApplication;
 
     beforeAll(async () => {
@@ -13,7 +13,9 @@ describe('OrdersController (e2e)', () => {
         if (app) await app.close();
     }, 10000);
 
-    it('placeholder', () => {
-        expect(true).toBe(true);
+    it('/health (GET)', () => {
+        return request(app.getHttpServer())
+            .get('/api/v1/health')
+            .expect(200);
     });
 });

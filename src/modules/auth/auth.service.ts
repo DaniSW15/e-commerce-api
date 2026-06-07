@@ -40,11 +40,10 @@ export class AuthService {
 
     // ==================== REGISTRO ====================
     async register(registerDto: RegisterDto) {
-        const hashedPassword = await bcrypt.hash(registerDto.password, 12);
-
+        // No hashear aquí - UserSubscriber lo hace automáticamente en beforeInsert
         const user = await this.usersService.create({
             email: registerDto.email,
-            password: hashedPassword,
+            password: registerDto.password,
             role: registerDto.role || UserRole.CUSTOMER,
             workEmail: registerDto.workEmail,
             metadata: registerDto.metadata,

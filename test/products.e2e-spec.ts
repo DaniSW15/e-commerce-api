@@ -1,43 +1,57 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { AppModule } from './../src/app.module';
+import { createTestApp, verifyUserEmail } from './test-utils';
 
 describe('ProductsController (e2e)', () => {
     let app: INestApplication;
     let accessToken: string;
+    const adminEmail = `admin-${Date.now()}@example.com`;
 
     beforeAll(async () => {
-        const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [AppModule],
-        }).compile();
+        app = await createTestApp();
 
-        app = moduleFixture.createNestApplication();
-        await app.init();
+        // 1. Registrar admin
+        await request(app.getHttpServer())
+            .post('/api/v1/auth/register')
+            .send({
+                email: adminEmail,
+                password: 'admin123',
+                firstName: 'Admin',
+                lastName: 'User',
+                role: 'admin',
+            });
 
-        // Login as admin
-        const res = await request(app.getHttpServer())
+        // Verificar email en entorno de test
+        await verifyUserEmail(app, adminEmail);
+
+        // 2. Login como admin
+        const loginRes = await request(app.getHttpServer())
             .post('/api/v1/auth/login')
             .send({
-                email: 'admin@example.com',
+                email: adminEmail,
                 password: 'admin123',
             });
 
-        accessToken = res.body.accessToken;
-    });
+        if (loginRes.status !== 200) {
+            console.log('Admin login failed:', loginRes.status, loginRes.body);
+            throw new Error(`Admin login failed: ${loginRes.body.message}`);
+        }
+
+        accessToken = loginRes.body.access_token;
+    }, 30000);
 
     afterAll(async () => {
-        await app.close();
-    });
+        if (app) await app.close();
+    }, 10000);
 
     it('/products (POST) - should create product', () => {
         return request(app.getHttpServer())
             .post('/api/v1/products')
             .set('Authorization', `Bearer ${accessToken}`)
             .send({
-                sku: 'SKU-TEST-001',
+                sku: `SKU-${Date.now()}`,
                 name: 'Test Product',
-                slug: 'test-product',
+                slug: `test-product-${Date.now()}`,
                 price: 99.99,
                 stockQuantity: 100,
             })

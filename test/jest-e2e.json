@@ -17,5 +17,9 @@
         "^@users/(.*)$": "<rootDir>/../src/modules/users/$1",
         "^@common/(.*)$": "<rootDir>/../src/common/$1",
         "^@config/(.*)$": "<rootDir>/../src/config/$1"
-    }
+    },
+    "setupFiles": [
+        "<rootDir>/setup.ts"
+    ],
+    "testTimeout": 30000
 }

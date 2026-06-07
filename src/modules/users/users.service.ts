@@ -46,11 +46,10 @@ export class UsersService {
             }
             throw new ConflictException('Email already exists');
         }
-        const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
-
+        // No hashear aquí - UserSubscriber lo hace automáticamente en beforeInsert
         const user = this.userRepository.create({
             email: createUserDto.email,
-            password: hashedPassword,
+            password: createUserDto.password,
             role: createUserDto.role || UserRole.CUSTOMER,
             workEmail: createUserDto.workEmail,
             metadata: createUserDto.metadata,

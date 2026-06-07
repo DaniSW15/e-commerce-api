@@ -74,7 +74,7 @@ export class MediaService {
     return this.mediaRepository.save(media);
   }
 
-  async deleteImage(id: string): Promise<void> {
+  async deleteImage(id: string): Promise<{ message: string }> {
     const media = await this.mediaRepository.findOne({ where: { id } });
     if (!media) throw new BadRequestException('Media not found');
 
@@ -86,6 +86,8 @@ export class MediaService {
 
     // Eliminar de DB
     await this.mediaRepository.remove(media);
+
+    return { message: 'Media deleted successfully' };
   }
 
   async getSignedUrl(fileName: string, expiresIn: number = 3600): Promise<string> {
