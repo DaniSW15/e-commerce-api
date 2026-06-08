@@ -9,9 +9,6 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://api-staging.yourdomain.com
     timeout-minutes: 20
 
     steps:
@@ -73,6 +70,7 @@ jobs:
 
       - name: Notify Slack on success
         if: success()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.25.0
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -92,6 +90,7 @@ jobs:
 
       - name: Notify Slack on failure
         if: failure()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.25.0
         with:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
