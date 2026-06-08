@@ -1,0 +1,33 @@
+# ==================================================
+# Code Owners - E-Commerce API
+# ==================================================
+# These owners will be requested for review when someone opens a PR
+# modifying code in these directories/files.
+
+# Default owners for everything in the repo
+* @yourusername
+
+# Infrastructure & DevOps
+/.github/              @yourusername
+/docker-compose*.yml   @yourusername
+/Dockerfile            @yourusername
+/nginx/                @yourusername
+/scripts/              @yourusername
+
+# Core modules
+/src/modules/auth/     @yourusername
+/src/modules/users/    @yourusername
+/src/modules/products/ @yourusername
+/src/modules/orders/   @yourusername
+/src/modules/payments/ @yourusername
+
+# Common/Shared code
+/src/common/           @yourusername
+/src/shared/           @yourusername
+
+# Testing
+/test/                 @yourusername
+
+# Documentation
+/docs/                 @yourusername
+README.md              @yourusername

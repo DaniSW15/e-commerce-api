@@ -2,7 +2,8 @@ import { Injectable, ConflictException, NotFoundException, BadRequestException, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole, UserStatus } from '@users/entities/user.entity';
+import { User, UserStatus } from '@users/entities/user.entity';
+import { UserRole } from '@/common/enums';
 import { UserProfile } from '@users/entities/user-profile.entity';
 import { LoginAttempt } from '@users/entities/login-attempt.entity';
 import { CreateUserDto } from '@users/dto/create-user.dto';

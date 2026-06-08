@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # ==================== API Service (Staging) ====================
+  api:
+    image: ${DOCKER_USERNAME}/ecommerce-api:staging
+    container_name: ecommerce-api-staging
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: staging
+      PORT: 3000
+      
+      # Database
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_SYNC: "false"
+      DATABASE_LOGGING: "true" # More verbose in staging
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      
+      # AWS S3 (staging bucket)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}-staging
+      
+      # Stripe (test mode)
+      STRIPE_SECRET_KEY: ${STRIPE_TEST_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_TEST_WEBHOOK_SECRET}
+      
+      # Email (test mode)
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      EMAIL_FROM: staging@yourdomain.com
+      
+      # App Config
+      APP_URL: https://api-staging.yourdomain.com
+      FRONTEND_URL: https://staging.yourdomain.com
+      
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ecommerce-staging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== PostgreSQL ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecommerce-postgres-staging
+    restart: unless-stopped
+    volumes:
+      - postgres-staging-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - ecommerce-staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis-staging
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-staging-data:/data
+    networks:
+      - ecommerce-staging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  ecommerce-staging:
+    driver: bridge
+
+volumes:
+  postgres-staging-data:
+  redis-staging-data:

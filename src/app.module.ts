@@ -23,6 +23,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { MediaModule } from './modules/media/media.module';
 import { BullModule } from '@nestjs/bull';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     PaymentsModule,
     MediaModule,
     NotificationsModule,
+    CartModule,
   ],
   controllers: [],
   providers: [RedisService,

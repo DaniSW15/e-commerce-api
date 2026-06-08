@@ -1,0 +1,210 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on version tags (v1.0.0, v1.2.3, etc.)
+  workflow_dispatch: # Manual trigger with approval
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.yourdomain.com
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --production=false
+
+      - name: Run full test suite
+        run: |
+          npm run test
+          npm run test:e2e
+        env:
+          NODE_ENV: test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/ecommerce-api:latest
+            ${{ secrets.DOCKER_USERNAME }}/ecommerce-api:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.DOCKER_USERNAME }}/ecommerce-api:prod-${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/ecommerce-api:latest
+          cache-to: type=inline
+          build-args: |
+            NODE_ENV=production
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VERSION=${{ steps.version.outputs.VERSION }}
+
+      - name: Create deployment backup
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            cd /var/www/ecommerce-api
+            mkdir -p backups
+            docker-compose exec -T postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backups/db-backup-$(date +%Y%m%d-%H%M%S).sql
+            echo "Backup created successfully"
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            cd /var/www/ecommerce-api
+            
+            # Pull latest images
+            docker-compose -f docker-compose.prod.yml pull
+            
+            # Blue-Green deployment: Start new containers
+            docker-compose -f docker-compose.prod.yml up -d --no-deps --scale api=2 --no-recreate api
+            
+            # Wait for new containers to be healthy
+            sleep 15
+            
+            # Run migrations
+            docker-compose -f docker-compose.prod.yml exec -T api npm run migration:run
+            
+            # Remove old containers
+            docker-compose -f docker-compose.prod.yml up -d --scale api=1 --remove-orphans
+            
+            # Cleanup old images
+            docker image prune -f
+
+      - name: Health check & smoke tests
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 20
+          
+          # Health check
+          HEALTH=$(curl -f -s https://api.yourdomain.com/health)
+          echo "Health check response: $HEALTH"
+          
+          if echo "$HEALTH" | grep -q '"status":"ok"'; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed"
+            exit 1
+          fi
+          
+          # Basic API test
+          curl -f https://api.yourdomain.com/api/v1/products || exit 1
+          echo "✅ Smoke tests passed"
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            echo "⚠️ Deployment failed, rolling back..."
+            cd /var/www/ecommerce-api
+            
+            # Find and restore previous image
+            PREVIOUS_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ecommerce-api:v | head -2 | tail -1)
+            echo "Rolling back to: $PREVIOUS_IMAGE"
+            
+            # Restore from backup if needed
+            LATEST_BACKUP=$(ls -t backups/db-backup-*.sql | head -1)
+            if [ -n "$LATEST_BACKUP" ]; then
+              echo "Restoring database from: $LATEST_BACKUP"
+              docker-compose exec -T postgres psql -U $POSTGRES_USER $POSTGRES_DB < "$LATEST_BACKUP"
+            fi
+            
+            # Restart with previous version
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            echo "✅ Rollback completed"
+
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Changes in this Release
+            
+            **Deployed to Production**: ${{ github.sha }}
+            **Deployment Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+            
+            ### What's Changed
+            - See commit history for details
+            
+            ### Deployment Info
+            - Docker Image: `${{ secrets.DOCKER_USERNAME }}/ecommerce-api:${{ steps.version.outputs.VERSION }}`
+            - Environment: Production
+            - Status: ✅ Deployed Successfully
+          draft: false
+          prerelease: false
+
+      - name: Notify team on Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Production deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Production Deployment ${{ job.status == 'success' && 'Successful ✅' || 'Failed ❌' }}*\n\n*Version:* ${{ steps.version.outputs.VERSION }}\n*Commit:* ${{ github.sha }}\n*Author:* ${{ github.actor }}\n*URL:* https://api.yourdomain.com"
+                  }
+                }
+              ]
+            }

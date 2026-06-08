@@ -16,7 +16,8 @@ import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '@/common/services/redis/redis.service';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
-import { User, UserRole } from '../users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '@/common/enums';
 import { Login2FADto } from './dto/login-2fa.dto';
 
 @Injectable()

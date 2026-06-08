@@ -13,21 +13,13 @@ import { UserProfile } from './user-profile.entity';
 import { UserAddress } from './user-address.entity';
 import { LoginAttempt } from './login-attempt.entity';
 import { RefreshToken } from '../../auth/entites/refresh-token.entity';
+import { UserRole } from '@/common/enums';
 
 export enum UserStatus {
     ACTIVE = 'active',
     SUSPENDED = 'suspended',
     LOCKED = 'locked',
     DELETED = 'deleted',
-}
-
-export enum UserRole {
-    CUSTOMER = 'customer',
-    ADMIN = 'admin',
-    DEVELOPER = 'developer',
-    SELLER = 'seller',
-    SUPPORT = 'support',
-    SUPER_ADMIN = 'super_admin',
 }
 
 @Entity('users')

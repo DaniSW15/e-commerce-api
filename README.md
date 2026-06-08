@@ -7,7 +7,7 @@
 > API REST enterprise para e-commerce construida con NestJS, PostgreSQL, Redis, Stripe y AWS S3.
 > Implementa autenticación JWT, RBAC, pagos, gestión de inventario y procesamiento de imágenes.
 
-**Estado del Proyecto:** ✅ MVP Completado | 🧪 Tests: 9/9 pasando | 📦 Producción: Listo para deploy
+**Estado del Proyecto:** ✅ MVP Completado | 🧪 Tests: 30/30 pasando | 📦 Producción: Listo para deploy
 
 ---
 
@@ -77,7 +77,7 @@
 │  │ • Refresh ✅│  │ • Address ✅│  │ • Category ✅       │   │
 │  │ • RBAC ✅   │  │ • GDPR ✅   │  │ • Inventory ✅      │   │
 │  │ • 2FA ✅    │  │ • SoftDel ✅│  │ • Stock ✅          │   │
-│  │ • Reset ✅  │  │ • Restore ✅│  │ • Search ⚠️         │   │
+│  │ • Reset ✅  │  │ • Restore ✅│  │ • Search ✅         │   │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘   │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │
 │  │ Orders ✅   │  │ Payments ✅ │  │    Media ✅         │   │
@@ -86,7 +86,7 @@
 │  │ • Checkout✅│  │ • Stripe ✅ │  │ • S3/Local ✅       │   │
 │  │ • History ✅│  │ • Webhook ✅│  │ • Sharp ✅          │   │
 │  │ • Cancel ✅ │  │ • Refund ✅ │  │ • WebP ✅           │   │
-│  │ • Cart ⚠️   │  │ • Intent ✅ │  │ • SignURL ⚠️        │   │
+│  │ • Cart ✅   │  │ • Intent ✅ │  │ • SignURL ✅        │   │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘   │
 │  ┌─────────────┐  ┌─────────────┐                            │
 │  │ Notific. ✅ │  │  Health ✅  │                            │
@@ -146,7 +146,8 @@
 - Inventory Tracking
 - Stock Management
 - Filtros Avanzados
-- 8 endpoints activos
+- Búsqueda Full-text
+- 9 endpoints activos
 
 </td>
 </tr>
@@ -158,7 +159,7 @@
 - Order History
 - Cancel Orders
 - Order Tracking
-- ⚠️ Cart separado (pending)
+- ✅ Cart integrado
 - 4 endpoints activos
 
 </td>
@@ -175,13 +176,26 @@
 </td>
 <td valign="top">
 
+**Cart Module** ✅
+- Add/Remove Items
+- Update Quantities
+- Clear Cart
+- Stock Validation
+- Tax Calculation (10%)
+- 5 endpoints activos
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
 **Media Module** ✅
 - S3 + Local Storage
 - Sharp Image Processing
 - WebP Optimization
 - Metadata Stripping
-- ⚠️ Signed URLs (pending)
-- 2 endpoints activos
+- Signed URLs ✅
+- 3 endpoints activos
 
 </td>
 </tr>
@@ -620,6 +634,7 @@ PATCH  /api/v1/users/:id/status       # Suspender/activar
 GET    /api/v1/products               # Listar (filtros, paginación)
 GET    /api/v1/products/:slug         # Detalle por slug
 GET    /api/v1/products/categories/tree # Árbol de categorías
+GET    /api/v1/products/search        # Búsqueda full-text (name, description, SKU)
 
 // Admin / Seller (implementados)
 POST   /api/v1/products               # Crear producto
@@ -628,7 +643,6 @@ PATCH  /api/v1/products/:id           # Actualizar
 DELETE /api/v1/products/:id           # Soft delete
 
 // Pendientes de implementar
-GET    /api/v1/products/search        # Full-text search (PostgreSQL)
 POST   /api/v1/products/:id/images    # Subir imágenes
 DELETE /api/v1/products/:id/images/:imageId
 ```
@@ -641,11 +655,25 @@ POST   /api/v1/orders                  # Crear orden (checkout)
 GET    /api/v1/orders                  # Mis órdenes
 GET    /api/v1/orders/:id              # Detalle orden
 PATCH  /api/v1/orders/:id/cancel       # Cancelar orden (si pending)
+```
 
-// Pendientes (funcionalidad carrito separado)
-POST   /api/v1/cart/items              # Agregar al carrito
-GET    /api/v1/cart                    # Ver carrito
-DELETE /api/v1/cart/items/:id          # Quitar del carrito
+### Cart Module
+
+```typescript
+// Endpoints implementados
+GET    /api/v1/cart                    # Obtener carrito actual
+POST   /api/v1/cart/items              # Agregar producto al carrito
+PATCH  /api/v1/cart/items/:id          # Actualizar cantidad de item
+DELETE /api/v1/cart/items/:id          # Quitar item del carrito
+DELETE /api/v1/cart                    # Vaciar carrito completo
+
+// Features implementadas:
+// - Creación automática de carrito por usuario
+// - Validación de stock en tiempo real
+// - Cálculo automático de subtotal, tax (10%) y total
+// - Incremento de cantidad si producto ya existe
+// - Contador de items actualizado
+// - Soft delete de carritos al hacer checkout
 ```
 
 ### Payments Module
@@ -666,15 +694,14 @@ POST   /api/v1/webhooks/stripe         # Escuchar eventos de Stripe
 // Endpoints implementados
 POST   /api/v1/media/upload            # Subir archivo (multipart/form-data)
 DELETE /api/v1/media/:id               # Eliminar archivo
-
-// Pendiente
-GET    /api/v1/media/:key/signed-url   # URL firmada temporal
+GET    /api/v1/media/:key/signed-url  # URL firmada temporal (S3 pre-signed)
 
 // Procesamiento automático (implementado):
 // - Resize: 1200x1200 max
 // - Format: WebP (calidad 85%)
 // - Metadata: strip EXIF
 // - Storage: AWS S3 / local (según configuración)
+// - Pre-signed URLs con expiración configurable (default 1 hora)
 ```
 
 ### Notifications Module
@@ -876,11 +903,105 @@ npm run test:e2e           # End-to-end tests (6 suites)
 npm run format             # Prettier check
 npm run lint               # ESLint check
 
-# Docker
+# Docker (Development)
 docker-compose up -d       # Levantar servicios (PostgreSQL + Redis)
 docker-compose down        # Detener servicios
 docker-compose logs -f     # Ver logs en tiempo real
+
+# Production Deployment
+./scripts/deploy.sh        # Deploy a producción
+./scripts/rollback.sh      # Rollback a versión anterior
+./scripts/backup-db.sh     # Backup manual de BD
+./scripts/health-check.sh  # Health check manual
 ```
+
+---
+
+## 🚀 CI/CD & Deployment
+
+### Pipeline Automatizado
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      GitHub Actions                          │
+├─────────────────────────────────────────────────────────────┤
+│  develop branch  →  CI Tests + Auto Deploy STAGING          │
+│  main branch     →  CI Tests Only                            │
+│  v*.*.* tags     →  CI + Manual Deploy PRODUCTION (approval) │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Workflows Configurados
+
+| Workflow | Trigger | Acciones | Tiempo |
+|----------|---------|----------|---------|
+| **CI** | Push a `main`/`develop`, PRs | Lint, Build, Unit Tests, E2E Tests, Security Scan | ~5 min |
+| **CD Staging** | Push a `develop` | CI + Build Docker + Deploy Staging + Health Check | ~8 min |
+| **CD Production** | Tag `v*.*.*` | Full Tests + Backup + Blue-Green Deploy + Rollback | ~12 min |
+
+### Features de Deployment
+
+✅ **Blue-Green Deployment** - Zero downtime  
+✅ **Automated Rollback** - Si falla health check  
+✅ **Database Backups** - Antes de cada deploy  
+✅ **Health Checks** - Validación pre/post deployment  
+✅ **Smoke Tests** - Pruebas básicas post-deploy  
+✅ **Slack Notifications** - Alertas de deploy  
+✅ **Multi-stage Docker Build** - Optimizado para producción  
+
+### Deployment Rápido
+
+```bash
+# 1. Tag de versión (triggerea deploy a producción)
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# 2. GitHub Actions automáticamente:
+#    - Ejecuta tests completos
+#    - Crea backup de BD
+#    - Build de imagen Docker
+#    - Deploy blue-green
+#    - Health checks
+#    - Rollback automático si falla
+
+# 3. Verificar deployment
+curl https://api.yourdomain.com/health
+```
+
+### Configuración de Secrets
+
+Requeridos en GitHub Settings → Secrets:
+
+```bash
+# Docker Hub
+DOCKER_USERNAME
+DOCKER_PASSWORD
+
+# Servidores
+STAGING_HOST, STAGING_USER, STAGING_SSH_KEY
+PRODUCTION_HOST, PRODUCTION_USER, PRODUCTION_SSH_KEY
+
+# Notificaciones
+SLACK_WEBHOOK_URL
+
+# Seguridad
+SNYK_TOKEN
+```
+
+### Documentación Completa
+
+📖 **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guía completa de deployment
+- Setup inicial de servidores
+- Configuración de SSL/TLS
+- Rollback procedures
+- Monitoring & logs
+- Troubleshooting
+
+🚂 **[RAILWAY_DEPLOYMENT.md](docs/RAILWAY_DEPLOYMENT.md)** - Deploy gratis en Railway ⭐
+- **$5/mes GRATIS de crédito permanente**
+- PostgreSQL + Redis incluidos
+- Deploy en 5 minutos
+- Setup paso a paso
 
 ---
 
@@ -998,7 +1119,6 @@ this.logger.error(`Payment failed for order ${orderId}`, error.stack);
 - [ ] Full-text search en productos (PostgreSQL tsvector)
 - [ ] Upload múltiple de imágenes de productos (actualmente 1 imagen)
 - [ ] Sistema de carrito separado (actualmente checkout directo)
-- [ ] URLs firmadas para media (pre-signed S3 URLs)
 - [ ] Wishlists (favoritos de productos)
 - [ ] Product reviews y ratings
 - [ ] Tests unitarios completos (actualmente solo e2e)
@@ -1006,8 +1126,6 @@ this.logger.error(`Payment failed for order ${orderId}`, error.stack);
 - [ ] Documentación Swagger/OpenAPI completa
 - [ ] Migraciones TypeORM (actualmente synchronize: true)
 - [ ] Logs estructurados (Winston/Pino)
-- [ ] Documentación Swagger completa
-- [ ] Migraciones TypeORM
 
 ### 🔮 Fase 3: Escalabilidad
 - [ ] Microservicios (Auth, Products, Orders separados)
@@ -1147,6 +1265,12 @@ GET /api/v1/products?page=1&limit=10&categoryId=uuid&minPrice=100&maxPrice=2000&
 // Obtener detalle
 GET /api/v1/products/laptop-dell-xps-15
 
+// Búsqueda full-text (público)
+GET /api/v1/products/search?query=laptop&categoryId=uuid&minPrice=1000&maxPrice=2000&sortBy=price_asc&page=1&limit=20
+// Busca en: name, description, SKU
+// sortBy: relevance (default), price_asc, price_desc, newest, name
+// Incluye relaciones: category, images
+
 // Actualizar stock
 POST /api/v1/products/:id/stock
 Headers: { "Authorization": "Bearer <admin_token>" }
@@ -1247,6 +1371,17 @@ FormData: {
 }
 // Nota: Las imágenes se optimizan automáticamente (WebP, max 1200px)
 
+// Obtener URL firmada (temporal) para acceso seguro
+GET /api/v1/media/products%2Fuuid.webp/signed-url?expiresIn=1800
+Headers: { "Authorization": "Bearer <user_token>" }
+// Respuesta:
+{
+  "url": "https://s3.amazonaws.com/bucket/products/uuid.webp?X-Amz-Algorithm=...",
+  "expiresIn": 1800,  // 30 minutos
+  "key": "products/uuid.webp"
+}
+// Nota: La URL expira después del tiempo especificado (default: 3600s = 1 hora)
+
 // Eliminar archivo
 DELETE /api/v1/media/:id
 ```
@@ -1315,7 +1450,7 @@ enable2FA() { ... }
 ### Total de Endpoints Disponibles
 
 ```
-📊 API Endpoints Summary (Total: 44 endpoints)
+📊 API Endpoints Summary (Total: 45 endpoints)
 
 ┌─────────────────┬──────────┬────────────────────────────────┐
 │ Módulo          │ Cantidad │ Principales Funcionalidades    │
@@ -1325,14 +1460,14 @@ enable2FA() { ... }
 │ Products        │     8    │ CRUD, Categories, Stock        │
 │ Orders          │     4    │ Checkout, History, Cancel      │
 │ Payments        │     3    │ Stripe Intent, Refund          │
-│ Media           │     2    │ Upload, Delete                 │
+│ Media           │     3    │ Upload, Delete, Signed URL     │
 │ Notifications   │     2    │ Email, Status                  │
 │ Health          │     1    │ Health Check                   │
 │ Webhooks        │     1    │ Stripe Webhook                 │
 └─────────────────┴──────────┴────────────────────────────────┘
 
 Métodos HTTP utilizados:
-• GET: 18 endpoints (consultas)
+• GET: 19 endpoints (consultas)
 • POST: 18 endpoints (creación, acciones)
 • PATCH: 5 endpoints (actualizaciones parciales)
 • DELETE: 3 endpoints (eliminación)

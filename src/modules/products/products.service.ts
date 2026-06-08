@@ -13,6 +13,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateCategoryDto } from './dto/create-categor.dto';
+import { SearchProductDto, SearchSortBy } from './dto/search-product.dto';
 
 @Injectable()
 export class ProductsService {
@@ -129,6 +130,104 @@ export class ProductsService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async search(searchDto: SearchProductDto): Promise<{ data: Product[]; meta: any }> {
+    const { query, categoryId, minPrice, maxPrice, sortBy, page, limit } = searchDto;
+
+    // Construir query con QueryBuilder para full-text search
+    const qb = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.images', 'images')
+      .where('product.status = :status', { status: ProductStatus.ACTIVE })
+      .andWhere('product.deletedAt IS NULL');
+
+    // Full-text search usando PostgreSQL tsvector
+    // Buscar en name y description con pesos diferentes
+    if (query && query.trim()) {
+      const searchTerm = query.trim();
+      const likeQuery = `%${query}%`;
+
+      qb.andWhere(
+        `(
+          product.name ILIKE :likeQuery OR
+          product.description ILIKE :likeQuery OR
+          product.sku ILIKE :likeQuery
+        )`,
+        { likeQuery }
+      );
+
+      // Agregar ranking de relevancia si se ordena por relevancia
+      if (sortBy === SearchSortBy.RELEVANCE) {
+        qb.addSelect(
+          `CASE
+            WHEN product.name ILIKE :likeQuery THEN 3
+            WHEN product.sku ILIKE :likeQuery THEN 2
+            WHEN product.description ILIKE :likeQuery THEN 1
+            ELSE 0
+          END`,
+          'search_rank'
+        );
+      }
+    }
+
+    // Filtro por categoría
+    if (categoryId) {
+      qb.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    // Filtro por rango de precio
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      qb.andWhere('product.price BETWEEN :minPrice AND :maxPrice', { minPrice, maxPrice });
+    } else if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    } else if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    // Ordenamiento
+    switch (sortBy) {
+      case SearchSortBy.RELEVANCE:
+        if (query && query.trim()) {
+          qb.orderBy('search_rank', 'DESC');
+        } else {
+          qb.orderBy('product.createdAt', 'DESC');
+        }
+        break;
+      case SearchSortBy.PRICE_ASC:
+        qb.orderBy('product.price', 'ASC');
+        break;
+      case SearchSortBy.PRICE_DESC:
+        qb.orderBy('product.price', 'DESC');
+        break;
+      case SearchSortBy.NEWEST:
+        qb.orderBy('product.createdAt', 'DESC');
+        break;
+      case SearchSortBy.NAME:
+        qb.orderBy('product.name', 'ASC');
+        break;
+      default:
+        qb.orderBy('product.createdAt', 'DESC');
+    }
+
+    // Paginación
+    qb.skip((page - 1) * limit).take(limit);
+
+    // Ejecutar query
+    const [data, total] = await qb.getManyAndCount();
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        query,
+        sortBy,
       },
     };
   }

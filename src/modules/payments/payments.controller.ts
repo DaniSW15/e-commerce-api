@@ -3,7 +3,7 @@ import { PaymentsService } from './payments.service';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentUser } from '@/common/decorators';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 
 @ApiTags('payments')

@@ -72,6 +72,16 @@ temp/
 docker-compose.override.yml
 
 # ============================================
+# DEPLOYMENT & CI/CD
+# ============================================
+/backups/
+*.sql
+*.sql.gz
+logs/deployment-*.log
+/nginx/ssl/*.pem
+/nginx/ssl/*.key
+
+# ============================================
 # MISC
 # ============================================
 pids

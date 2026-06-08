@@ -1,13 +1,14 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { PERMISSIONS_KEY } from '@/common/decorators/permissions.decorator';
+import { Permission, ROLE_PERMISSIONS, hasPermission } from '@/common/enums/permission.enum';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
     constructor(private reflector: Reflector) { }
 
     canActivate(context: ExecutionContext): boolean {
-        const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+        const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(PERMISSIONS_KEY, [
             context.getHandler(),
             context.getClass(),
         ]);
@@ -22,30 +23,23 @@ export class PermissionsGuard implements CanActivate {
             throw new ForbiddenException('User not authenticated');
         }
 
-        // Aquí puedes implementar la lógica de permisos
-        // Ejemplo: verificar si el usuario tiene los permisos necesarios
+        // Obtener permisos del usuario basado en su rol
         const userPermissions = this.getUserPermissions(user);
 
-        const hasPermissions = requiredPermissions.every(permission =>
-            userPermissions.includes(permission)
+        // Verificar si el usuario tiene todos los permisos requeridos
+        const hasAllPermissions = requiredPermissions.every(permission =>
+            hasPermission(userPermissions, permission)
         );
 
-        if (!hasPermissions) {
+        if (!hasAllPermissions) {
             throw new ForbiddenException(`Insufficient permissions`);
         }
 
         return true;
     }
 
-    private getUserPermissions(user: any): string[] {
-        // Lógica para obtener permisos del usuario basado en su rol
-        const rolePermissions = {
-            customer: ['products:read', 'orders:create', 'orders:read'],
-            seller: ['products:read', 'products:create', 'products:update', 'orders:read'],
-            admin: ['*:read', '*:create', '*:update', '*:delete'],
-            super_admin: ['*:*'],
-        };
-
-        return rolePermissions[user.role] || [];
+    private getUserPermissions(user: any): Permission[] {
+        // Obtener permisos del rol desde el mapeo centralizado
+        return ROLE_PERMISSIONS[user.role] || [];
     }
 }

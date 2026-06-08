@@ -3,9 +3,9 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { SendEmailDto } from './dto/send-email.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Roles } from '@/common/decorators';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
-import { UserRole } from '@modules/users/entities/user.entity';
+import { UserRole } from '@/common/enums';
 
 @ApiTags('notifications')
 @Controller('notifications')

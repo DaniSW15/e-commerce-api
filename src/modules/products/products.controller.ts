@@ -17,10 +17,11 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Roles } from '@/common/decorators';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
-import { UserRole } from '@modules/users/entities/user.entity';
+import { UserRole } from '@/common/enums';
 import { CreateCategoryDto } from './dto/create-categor.dto';
+import { SearchProductDto } from './dto/search-product.dto';
 
 @ApiTags('products')
 @Controller('products')
@@ -33,6 +34,13 @@ export class ProductsController {
   @ApiOperation({ summary: 'List all products with filters' })
   async findAll(@Query() filters: ProductFilterDto) {
     return this.productsService.findAll(filters);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Full-text search products' })
+  @ApiResponse({ status: 200, description: 'Products matching search query' })
+  async search(@Query() searchDto: SearchProductDto) {
+    return this.productsService.search(searchDto);
   }
 
   @Get(':slug')
