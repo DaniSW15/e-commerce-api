@@ -19,4 +19,4 @@ import { AuthModule } from '@modules/auth/auth.module';
   providers: [NotificationsService, EmailProcessor],
   exports: [NotificationsService],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

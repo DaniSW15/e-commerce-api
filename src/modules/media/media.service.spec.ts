@@ -24,12 +24,12 @@ const mockRepository = () => ({
 const mockConfigService = () => ({
   get: jest.fn((key: string) => {
     const config: Record<string, string> = {
-      'S3_ENDPOINT': 'http://localhost:9000',
-      'S3_ACCESS_KEY': 'minioadmin',
-      'S3_SECRET_KEY': 'minioadmin123',
-      'S3_BUCKET': 'ecommerce-media',
-      'S3_REGION': 'us-east-1',
-      'S3_FORCE_PATH_STYLE': 'true',
+      S3_ENDPOINT: 'http://localhost:9000',
+      S3_ACCESS_KEY: 'minioadmin',
+      S3_SECRET_KEY: 'minioadmin123',
+      S3_BUCKET: 'ecommerce-media',
+      S3_REGION: 'us-east-1',
+      S3_FORCE_PATH_STYLE: 'true',
     };
     return config[key];
   }),
@@ -62,9 +62,9 @@ describe('MediaService', () => {
       mediaRepo.findOne.mockResolvedValue(media);
       mediaRepo.remove.mockResolvedValue(undefined);
 
-      await service.deleteImage('media-uuid');  // ← No esperar retorno
+      await service.deleteImage('media-uuid'); // ← No esperar retorno
 
-      expect(mediaRepo.remove).toHaveBeenCalled();  // ← Verificar que se llamó
+      expect(mediaRepo.remove).toHaveBeenCalled(); // ← Verificar que se llamó
     });
   });
 });

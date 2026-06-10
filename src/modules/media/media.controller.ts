@@ -12,7 +12,12 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { Roles } from '@/common/decorators';
@@ -26,7 +31,7 @@ import { Multer } from 'multer';
 @Roles(UserRole.ADMIN, UserRole.SELLER)
 @ApiBearerAuth('JWT-auth')
 export class MediaController {
-  constructor(private readonly mediaService: MediaService) { }
+  constructor(private readonly mediaService: MediaService) {}
 
   @Post('upload')
   @ApiOperation({ summary: 'Upload image' })
@@ -49,7 +54,8 @@ export class MediaController {
   @ApiOperation({ summary: 'Get signed URL for media file' })
   async getSignedUrl(
     @Param('key') key: string,
-    @Query('expiresIn', new ParseIntPipe({ optional: true })) expiresIn?: number,
+    @Query('expiresIn', new ParseIntPipe({ optional: true }))
+    expiresIn?: number,
   ) {
     const url = await this.mediaService.getSignedUrl(key, expiresIn);
     return {

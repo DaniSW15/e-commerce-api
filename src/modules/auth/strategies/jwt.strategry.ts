@@ -6,34 +6,34 @@ import { AuthService } from '../auth.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-    constructor(
-        private readonly authService: AuthService,
-        private readonly configService: ConfigService,
-    ) {
-        super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            ignoreExpiration: false,
-            secretOrKey: configService.get<string>('JWT_ACCESS_SECRET'),
-        });
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET'),
+    });
+  }
+
+  async validate(payload: any) {
+    const user = await this.authService.validateUser(payload.sub);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    async validate(payload: any) {
-        const user = await this.authService.validateUser(payload.sub);
-
-        if (!user) {
-            throw new UnauthorizedException('User not found');
-        }
-
-        if (user.status !== 'active') {
-            throw new UnauthorizedException('User account is inactive');
-        }
-
-        // Retornar datos mínimos del usuario
-        return {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            twoFactorEnabled: user.twoFactorEnabled,
-        };
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('User account is inactive');
     }
+
+    // Retornar datos mínimos del usuario
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      twoFactorEnabled: user.twoFactorEnabled,
+    };
+  }
 }

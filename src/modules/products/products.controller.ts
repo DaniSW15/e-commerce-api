@@ -11,7 +11,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -26,7 +31,7 @@ import { SearchProductDto } from './dto/search-product.dto';
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) { }
+  constructor(private readonly productsService: ProductsService) {}
 
   // ==================== PUBLIC ENDPOINTS ====================
 
@@ -99,7 +104,10 @@ export class ProductsController {
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update stock quantity' })
-  async updateStock(@Param('id') id: string, @Body('quantity') quantity: number) {
+  async updateStock(
+    @Param('id') id: string,
+    @Body('quantity') quantity: number,
+  ) {
     return this.productsService.updateStock(id, quantity);
   }
 }

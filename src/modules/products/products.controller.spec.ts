@@ -37,7 +37,10 @@ describe('ProductsController', () => {
         ProductsService,
         { provide: getRepositoryToken(Product), useValue: mockRepository() },
         { provide: getRepositoryToken(Category), useValue: mockRepository() },
-        { provide: getRepositoryToken(ProductImage), useValue: mockRepository() },
+        {
+          provide: getRepositoryToken(ProductImage),
+          useValue: mockRepository(),
+        },
       ],
     }).compile();
 

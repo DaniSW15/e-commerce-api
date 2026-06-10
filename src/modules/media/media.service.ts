@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Media, MediaType } from './entities/media.entity';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -30,7 +35,10 @@ export class MediaService {
     this.bucket = this.configService.get('S3_BUCKET');
   }
 
-  async uploadImage(file: Express.Multer.File, productId?: string): Promise<Media> {
+  async uploadImage(
+    file: Express.Multer.File,
+    productId?: string,
+  ): Promise<Media> {
     // Validaciones
     if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('Only images allowed');
@@ -50,15 +58,17 @@ export class MediaService {
     const fileName = `products/${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
 
     // Subir a MinIO/S3
-    await this.s3Client.send(new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: fileName,
-      Body: processed,
-      ContentType: 'image/webp',
-      Metadata: {
-        'original-name': file.originalname,
-      },
-    }));
+    await this.s3Client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: fileName,
+        Body: processed,
+        ContentType: 'image/webp',
+        Metadata: {
+          'original-name': file.originalname,
+        },
+      }),
+    );
 
     // Guardar en DB
     const media = this.mediaRepository.create({
@@ -79,10 +89,12 @@ export class MediaService {
     if (!media) throw new BadRequestException('Media not found');
 
     // Eliminar de S3
-    await this.s3Client.send(new DeleteObjectCommand({
-      Bucket: this.bucket,
-      Key: media.fileName,
-    }));
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: media.fileName,
+      }),
+    );
 
     // Eliminar de DB
     await this.mediaRepository.remove(media);
@@ -90,7 +102,10 @@ export class MediaService {
     return { message: 'Media deleted successfully' };
   }
 
-  async getSignedUrl(fileName: string, expiresIn: number = 3600): Promise<string> {
+  async getSignedUrl(
+    fileName: string,
+    expiresIn: number = 3600,
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: fileName,

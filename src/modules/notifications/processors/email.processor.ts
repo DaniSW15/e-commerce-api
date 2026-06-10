@@ -3,7 +3,10 @@ import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as nodemailer from 'nodemailer';
-import { Notification, NotificationStatus } from '../entities/notification.entity';
+import {
+  Notification,
+  NotificationStatus,
+} from '../entities/notification.entity';
 
 @Processor('email')
 export class EmailProcessor {

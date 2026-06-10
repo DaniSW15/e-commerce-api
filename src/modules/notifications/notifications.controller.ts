@@ -13,7 +13,7 @@ import { UserRole } from '@/common/enums';
 @Roles(UserRole.ADMIN)
 @ApiBearerAuth('JWT-auth')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) { }
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Post('email')
   @ApiOperation({ summary: 'Send email (queued)' })

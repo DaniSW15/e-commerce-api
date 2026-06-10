@@ -4,9 +4,9 @@ process.env.PORT = '3001';
 // Database - usar las mismas credenciales que desarrollo
 process.env.DB_HOST = 'localhost';
 process.env.DB_PORT = '5432';
-process.env.DB_USERNAME = 'ecommerce';  // tu usuario real
-process.env.DB_PASSWORD = 'change_me_in_production';  // tu password real
-process.env.DB_NAME = 'ecommerce_dev';  // tu DB real
+process.env.DB_USERNAME = 'ecommerce'; // tu usuario real
+process.env.DB_PASSWORD = 'change_me_in_production'; // tu password real
+process.env.DB_NAME = 'ecommerce_dev'; // tu DB real
 process.env.DB_SYNCHRONIZE = 'true';
 process.env.DB_LOGGING = 'true';
 

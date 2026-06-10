@@ -10,9 +10,12 @@ import { UserSubscriber } from '@users/subscribers/user.subscriber';
 import { LoginAttempt } from '@users/entities/login-attempt.entity';
 
 @Module({
-  imports: [forwardRef(() => AuthModule), TypeOrmModule.forFeature([User, UserProfile, UserAddress, LoginAttempt])],
+  imports: [
+    forwardRef(() => AuthModule),
+    TypeOrmModule.forFeature([User, UserProfile, UserAddress, LoginAttempt]),
+  ],
   controllers: [UsersController],
   providers: [UsersService, UserSubscriber],
-  exports: [UsersService, TypeOrmModule]
+  exports: [UsersService, TypeOrmModule],
 })
 export class UsersModule {}

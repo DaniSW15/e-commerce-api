@@ -24,7 +24,7 @@ export class ProductsService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(ProductImage)
     private readonly imageRepository: Repository<ProductImage>,
-  ) { }
+  ) {}
 
   // ==================== CATEGORIES ====================
 
@@ -96,7 +96,9 @@ export class ProductsService {
     return this.findById(savedProduct.id);
   }
 
-  async findAll(filters: ProductFilterDto): Promise<{ data: Product[]; meta: any }> {
+  async findAll(
+    filters: ProductFilterDto,
+  ): Promise<{ data: Product[]; meta: any }> {
     const { search, categoryId, minPrice, maxPrice, page, limit } = filters;
 
     const where: any = { status: ProductStatus.ACTIVE, deletedAt: IsNull() };
@@ -134,8 +136,11 @@ export class ProductsService {
     };
   }
 
-  async search(searchDto: SearchProductDto): Promise<{ data: Product[]; meta: any }> {
-    const { query, categoryId, minPrice, maxPrice, sortBy, page, limit } = searchDto;
+  async search(
+    searchDto: SearchProductDto,
+  ): Promise<{ data: Product[]; meta: any }> {
+    const { query, categoryId, minPrice, maxPrice, sortBy, page, limit } =
+      searchDto;
 
     // Construir query con QueryBuilder para full-text search
     const qb = this.productRepository
@@ -157,7 +162,7 @@ export class ProductsService {
           product.description ILIKE :likeQuery OR
           product.sku ILIKE :likeQuery
         )`,
-        { likeQuery }
+        { likeQuery },
       );
 
       // Agregar ranking de relevancia si se ordena por relevancia
@@ -169,7 +174,7 @@ export class ProductsService {
             WHEN product.description ILIKE :likeQuery THEN 1
             ELSE 0
           END`,
-          'search_rank'
+          'search_rank',
         );
       }
     }
@@ -181,7 +186,10 @@ export class ProductsService {
 
     // Filtro por rango de precio
     if (minPrice !== undefined && maxPrice !== undefined) {
-      qb.andWhere('product.price BETWEEN :minPrice AND :maxPrice', { minPrice, maxPrice });
+      qb.andWhere('product.price BETWEEN :minPrice AND :maxPrice', {
+        minPrice,
+        maxPrice,
+      });
     } else if (minPrice !== undefined) {
       qb.andWhere('product.price >= :minPrice', { minPrice });
     } else if (maxPrice !== undefined) {

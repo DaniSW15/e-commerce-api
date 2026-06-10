@@ -33,8 +33,8 @@ import { CartModule } from './modules/cart/cart.module';
       useFactory: (config: ConfigService) => ({
         throttlers: [
           {
-            ttl: config.get('THROTTLE_TTL', 60000),      // 60 segundos
-            limit: config.get('THROTTLE_LIMIT', 100),     // 100 requests por IP
+            ttl: config.get('THROTTLE_TTL', 60000), // 60 segundos
+            limit: config.get('THROTTLE_LIMIT', 100), // 100 requests por IP
           },
         ],
       }),
@@ -78,11 +78,12 @@ import { CartModule } from './modules/cart/cart.module';
     CartModule,
   ],
   controllers: [],
-  providers: [RedisService,
+  providers: [
+    RedisService,
     {
       provide: 'APP_GUARD',
-      useClass: ThrottlerGuard
-    }
+      useClass: ThrottlerGuard,
+    },
   ],
 })
-export class AppModule { }
+export class AppModule {}

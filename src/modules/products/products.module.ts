@@ -8,9 +8,12 @@ import { ProductImage } from './entities/product-image.entity';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, Category, ProductImage]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Product, Category, ProductImage]),
+    AuthModule,
+  ],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],
 })
-export class ProductsModule { }
+export class ProductsModule {}

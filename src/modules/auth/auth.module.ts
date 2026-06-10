@@ -18,8 +18,8 @@ import { SharedModule } from '@/shared/shared.module';
 
 @Module({
   imports: [
-  SharedModule,
-  forwardRef(() => UsersModule),
+    SharedModule,
+    forwardRef(() => UsersModule),
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken, PasswordReset]),
     JwtModule.registerAsync({
@@ -32,7 +32,15 @@ import { SharedModule } from '@/shared/shared.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard, PermissionsGuard, RefreshTokenStrategy, TwoFactorGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    PermissionsGuard,
+    RefreshTokenStrategy,
+    TwoFactorGuard,
+  ],
   exports: [AuthService, JwtAuthGuard, RolesGuard, PermissionsGuard],
 })
-export class AuthModule { }
+export class AuthModule {}

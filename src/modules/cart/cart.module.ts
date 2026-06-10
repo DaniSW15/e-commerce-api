@@ -8,13 +8,13 @@ import { ProductsModule } from '@modules/products/products.module';
 import { AuthModule } from '@modules/auth/auth.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Cart, CartItem]),
-        ProductsModule,
-        AuthModule,
-    ],
-    controllers: [CartController],
-    providers: [CartService],
-    exports: [CartService],
+  imports: [
+    TypeOrmModule.forFeature([Cart, CartItem]),
+    ProductsModule,
+    AuthModule,
+  ],
+  controllers: [CartController],
+  providers: [CartService],
+  exports: [CartService],
 })
-export class CartModule { }
+export class CartModule {}

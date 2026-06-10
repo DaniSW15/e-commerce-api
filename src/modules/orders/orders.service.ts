@@ -16,7 +16,7 @@ export class OrdersService {
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly productsService: ProductsService,
     private readonly dataSource: DataSource,
-  ) { }
+  ) {}
 
   async create(userId: string, dto: CreateOrderDto): Promise<Order> {
     let subtotal = 0;
@@ -25,7 +25,9 @@ export class OrdersService {
     for (const item of dto.items) {
       const product = await this.productsService.findById(item.productId);
       if (product.stockQuantity < item.quantity) {
-        throw new BadRequestException(`Insufficient stock for product ${product.name}. Available: ${product.stockQuantity}`);
+        throw new BadRequestException(
+          `Insufficient stock for product ${product.name}. Available: ${product.stockQuantity}`,
+        );
       }
       const itemSubtotal = Number(product.price) * item.quantity;
       subtotal += itemSubtotal;
@@ -100,7 +102,9 @@ export class OrdersService {
 
     const validTransitions = this.getValidStatusTransitions(order.orderStatus);
     if (!validTransitions.includes(status)) {
-      throw new BadRequestException(`Invalid status transition from ${order.orderStatus} to ${status}`);
+      throw new BadRequestException(
+        `Invalid status transition from ${order.orderStatus} to ${status}`,
+      );
     }
 
     order.orderStatus = status;
@@ -109,9 +113,11 @@ export class OrdersService {
 
   async cancel(id: string, userId: string): Promise<Order> {
     const order = await this.findById(id);
-    if (order.userId !== userId) throw new BadRequestException('You can only cancel your own orders');
+    if (order.userId !== userId)
+      throw new BadRequestException('You can only cancel your own orders');
 
-    if (order.orderStatus !== OrderStatus.PENDING) throw new BadRequestException('Only pending orders can be cancelled');
+    if (order.orderStatus !== OrderStatus.PENDING)
+      throw new BadRequestException('Only pending orders can be cancelled');
 
     await this.dataSource.transaction(async (manager) => {
       order.orderStatus = OrderStatus.CANCELLED;
@@ -129,7 +135,9 @@ export class OrdersService {
   private async generateOrderNumber(): Promise<string> {
     const date = new Date();
     const prefix = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const random = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, '0');
     return `ORD-${prefix}-${random}`;
   }
 

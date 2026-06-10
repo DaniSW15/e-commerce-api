@@ -8,12 +8,9 @@ import { AuthModule } from '../auth/auth.module';
 import { StripeWebhookController } from './webhooks/stripe-webhook.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Payment]),
-    OrdersModule,
-    AuthModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Payment]), OrdersModule, AuthModule],
   controllers: [PaymentsController, StripeWebhookController],
   providers: [PaymentsService],
   exports: [PaymentsService],
 })
-export class PaymentsModule { }
+export class PaymentsModule {}

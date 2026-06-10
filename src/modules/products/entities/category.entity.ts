@@ -32,7 +32,9 @@ export class Category {
   @Column({ default: true })
   isActive: boolean;
 
-  @ManyToOne(() => Category, (category) => category.children, { nullable: true })
+  @ManyToOne(() => Category, (category) => category.children, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'parentId' })
   parent: Category;
 

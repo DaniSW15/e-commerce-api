@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Notification, NotificationType, NotificationStatus } from './entities/notification.entity';
+import {
+  Notification,
+  NotificationType,
+  NotificationStatus,
+} from './entities/notification.entity';
 import { SendEmailDto } from './dto/send-email.dto';
 
 @Injectable()
@@ -12,9 +16,11 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     @InjectQueue('email') private readonly emailQueue: Queue,
-  ) { }
+  ) {}
 
-  async sendEmail(dto: SendEmailDto): Promise<{ message: string; jobId: number | string }> {
+  async sendEmail(
+    dto: SendEmailDto,
+  ): Promise<{ message: string; jobId: number | string }> {
     // 1. Guardar en DB
     const notification = await this.notificationRepository.save({
       type: NotificationType.EMAIL,
@@ -26,20 +32,24 @@ export class NotificationsService {
     });
 
     // 2. Agregar a cola
-    const job = await this.emailQueue.add('send', {
-      notificationId: notification.id,
-      to: dto.to,
-      subject: dto.subject,
-      html: dto.html,
-      text: dto.text,
-    }, {
-      delay: 0,
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 5000,
+    const job = await this.emailQueue.add(
+      'send',
+      {
+        notificationId: notification.id,
+        to: dto.to,
+        subject: dto.subject,
+        html: dto.html,
+        text: dto.text,
       },
-    });
+      {
+        delay: 0,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+      },
+    );
 
     return {
       message: 'Email queued successfully',
@@ -49,7 +59,7 @@ export class NotificationsService {
 
   async getStatus(notificationId: string): Promise<Notification> {
     return this.notificationRepository.findOne({
-    where: { id: notificationId },
-  });
+      where: { id: notificationId },
+    });
   }
 }

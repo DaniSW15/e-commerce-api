@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, NotFoundException, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  NotFoundException,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -11,18 +23,21 @@ import { CurrentUser } from '@/common/decorators';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new order' })
-  async create(@CurrentUser('id') userId: string, @Body() createOrderDto: CreateOrderDto) {
+  async create(
+    @CurrentUser('id') userId: string,
+    @Body() createOrderDto: CreateOrderDto,
+  ) {
     return this.ordersService.create(userId, createOrderDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get my orders' })
   async findByUser(@CurrentUser('id') userId: string) {
-    return this.ordersService.findByUser(userId);  // ← Lista de órdenes
+    return this.ordersService.findByUser(userId); // ← Lista de órdenes
   }
 
   @Get(':id')

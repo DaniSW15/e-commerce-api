@@ -1,6 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Payment, PaymentProvider, PaymentStatus } from './entities/payment.entity';
+import {
+  Payment,
+  PaymentProvider,
+  PaymentStatus,
+} from './entities/payment.entity';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { OrdersService } from '../orders/orders.service';
@@ -17,10 +25,9 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
   ) {
-    this.stripe = new Stripe(
-      this.configService.get('STRIPE_SECRET_KEY'),
-      { apiVersion: '2023-10-16' },
-    );
+    this.stripe = new Stripe(this.configService.get('STRIPE_SECRET_KEY'), {
+      apiVersion: '2023-10-16',
+    });
   }
 
   // ==================== PAYMENT INTENT ====================
@@ -76,11 +83,15 @@ export class PaymentsService {
   async handleWebhook(event: Stripe.Event) {
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentSuccess(
+          event.data.object as Stripe.PaymentIntent,
+        );
         break;
 
       case 'payment_intent.payment_failed':
-        await this.handlePaymentFailed(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentFailed(
+          event.data.object as Stripe.PaymentIntent,
+        );
         break;
 
       case 'charge.refunded':
@@ -100,7 +111,7 @@ export class PaymentsService {
         const charge = await this.stripe.charges.retrieve(
           typeof paymentIntent.latest_charge === 'string'
             ? paymentIntent.latest_charge
-            : paymentIntent.latest_charge.id
+            : paymentIntent.latest_charge.id,
         );
         receiptUrl = charge.receipt_url;
       }
@@ -151,9 +162,10 @@ export class PaymentsService {
     const refundAmount = charge.refunds?.data[0]?.amount;
     const originalAmount = Math.round(payment.amount * 100);
 
-    payment.status = refundAmount === originalAmount
-      ? PaymentStatus.REFUNDED
-      : PaymentStatus.PARTIALLY_REFUNDED;
+    payment.status =
+      refundAmount === originalAmount
+        ? PaymentStatus.REFUNDED
+        : PaymentStatus.PARTIALLY_REFUNDED;
 
     await this.paymentRepository.save(payment);
   }
