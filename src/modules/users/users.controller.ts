@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,6 +29,8 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(private readonly usersService: UsersService) {}
 
   // ==================== PROFILE ====================
@@ -94,7 +97,12 @@ export class UsersController {
     @CurrentUser('id') userId: string,
     @Body('reason') reason?: string,
   ) {
-    return this.usersService.deleteAccount(userId, reason);
+    if (reason) {
+      this.logger.log(
+        `Account deletion requested by user ${userId}. Reason: ${reason}`,
+      );
+    }
+    return this.usersService.deleteAccount(userId);
   }
 
   @Post('account/restore')

@@ -23,7 +23,6 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { Roles } from '@/common/decorators';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { UserRole } from '@/common/enums';
-import { Multer } from 'multer';
 
 @ApiTags('media')
 @Controller('media')

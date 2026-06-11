@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   UseGuards,
   NotFoundException,
   HttpCode,
@@ -13,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators';

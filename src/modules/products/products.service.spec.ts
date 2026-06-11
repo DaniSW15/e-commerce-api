@@ -20,8 +20,6 @@ const mockRepository = () => ({
 describe('ProductsService', () => {
   let service: ProductsService;
   let productRepo: ReturnType<typeof mockRepository>;
-  let categoryRepo: ReturnType<typeof mockRepository>;
-  let imageRepo: ReturnType<typeof mockRepository>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -44,8 +42,6 @@ describe('ProductsService', () => {
 
     service = module.get<ProductsService>(ProductsService);
     productRepo = module.get(getRepositoryToken(Product));
-    categoryRepo = module.get(getRepositoryToken(Category));
-    imageRepo = module.get(getRepositoryToken(ProductImage));
   });
 
   it('should be defined', () => {

@@ -52,7 +52,7 @@ export class HealthController {
     try {
       await this.redisService.get('health:check');
       return { redis: { status: 'up' } } as HealthIndicatorResult;
-    } catch (error) {
+    } catch {
       return { redis: { status: 'down' } } as HealthIndicatorResult;
     }
   }

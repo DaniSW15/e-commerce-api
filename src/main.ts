@@ -45,14 +45,31 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins = configService.get<string>('CORS_ORIGINS', '').split(',').filter(Boolean);
+
   app.enableCors({
     origin: (origin, callback) => {
-      const allowedOrigins = configService.get('CORS_ORIGINS', '*').split(',');
-      if (
-        !origin ||
-        allowedOrigins.includes('*') ||
-        allowedOrigins.includes(origin)
-      ) {
+      // Permitir peticiones sin Origin (curl, apps móviles, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Orígenes por defecto en desarrollo (Angular 4200 y React/Next 3000)
+      const isDev = nodeEnv !== 'production';
+      const devDefaults = ['http://localhost:3000', 'http://localhost:4200'];
+      
+      const whitelist = allowedOrigins.length > 0 
+        ? allowedOrigins 
+        : (isDev ? devDefaults : []);
+
+      // En producción no permitimos wildcard (*) si credentials es true
+      const hasWildcard = whitelist.includes('*');
+      if (hasWildcard && !isDev) {
+        logger.warn('WARNING: CORS wildcard (*) is not allowed in production with credentials enabled!');
+        return callback(new Error('CORS wildcard not allowed in production with credentials'));
+      }
+
+      if (whitelist.includes(origin) || (isDev && hasWildcard)) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));

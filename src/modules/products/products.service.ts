@@ -153,7 +153,6 @@ export class ProductsService {
     // Full-text search usando PostgreSQL tsvector
     // Buscar en name y description con pesos diferentes
     if (query && query.trim()) {
-      const searchTerm = query.trim();
       const likeQuery = `%${query}%`;
 
       qb.andWhere(
@@ -284,7 +283,7 @@ export class ProductsService {
   }
 
   async delete(id: string): Promise<{ message: string; deletedAt: Date }> {
-    const product = await this.findById(id);
+    await this.findById(id);
 
     // Soft delete
     await this.productRepository.softDelete(id);

@@ -1,5 +1,4 @@
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import { createTestApp } from './test-utils';
 
 describe('PaymentsController (e2e)', () => {

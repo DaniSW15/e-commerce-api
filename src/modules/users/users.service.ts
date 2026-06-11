@@ -6,14 +6,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserStatus } from '@users/entities/user.entity';
 import { UserRole } from '@/common/enums';
 import { UserProfile } from '@users/entities/user-profile.entity';
 import { LoginAttempt } from '@users/entities/login-attempt.entity';
-import { CreateUserDto } from '@users/dto/create-user.dto';
-import { RefreshToken } from '@auth/entites/refresh-token.entity';
 import { UserAddress } from './entities/user-address.entity';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -101,7 +99,7 @@ export class UsersService {
   }
 
   async softDelete(id: string): Promise<void> {
-    const user = await this.findById(id);
+    await this.findById(id);
     await this.userRepository.update(id, {
       email: `deleted_${id}@anonymized.local`,
     });
@@ -356,7 +354,7 @@ export class UsersService {
     return { message: 'Address deleted successfully' };
   }
 
-  async deleteAccount(userId: string, reason?: string) {
+  async deleteAccount(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: { profile: true },
@@ -415,7 +413,9 @@ export class UsersService {
   // ==================== HELPERS ====================
 
   private sanitizeUser(user: User) {
-    const { password, twoFactorSecret, ...safe } = user as any;
+    const safe = { ...(user as any) };
+    delete safe.password;
+    delete safe.twoFactorSecret;
     return safe;
   }
 }

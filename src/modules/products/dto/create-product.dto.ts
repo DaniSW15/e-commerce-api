@@ -5,7 +5,6 @@ import {
   IsNumber,
   IsUUID,
   IsEnum,
-  IsJSON,
   Min,
 } from 'class-validator';
 import { ProductStatus } from '../entities/product.entity';

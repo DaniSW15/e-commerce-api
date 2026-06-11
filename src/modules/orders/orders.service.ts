@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
 import { DataSource, Repository } from 'typeorm';

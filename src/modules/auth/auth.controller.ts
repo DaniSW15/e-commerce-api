@@ -3,12 +3,10 @@ import {
   Post,
   Body,
   UseGuards,
-  Request,
   Get,
   HttpCode,
   HttpStatus,
   Ip,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
