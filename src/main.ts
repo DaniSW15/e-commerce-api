@@ -7,6 +7,34 @@ import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { v4 as uuidv4 } from 'uuid';
 import { AppModule } from './app.module';
+import { WinstonModule } from 'nest-winston';
+import * as winston from 'winston';
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+const winstonLogger = WinstonModule.createLogger({
+  instance: winston.createLogger({
+    level: isProduction ? 'info' : 'debug',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      isProduction
+        ? winston.format.json()
+        : winston.format.combine(
+            winston.format.colorize(),
+            winston.format.printf(
+              ({ timestamp, level, message, context, ...meta }) => {
+                const contextStr = context ? ` [${context}]` : '';
+                const metaStr = Object.keys(meta).length
+                  ? ` ${JSON.stringify(meta)}`
+                  : '';
+                return `${timestamp} ${level}${contextStr}: ${message}${metaStr}`;
+              },
+            ),
+          ),
+    ),
+    transports: [new winston.transports.Console()],
+  }),
+});
 
 const logger = new Logger('Bootstrap');
 
@@ -15,7 +43,7 @@ async function bootstrap() {
 
   logger.log('Creating NestJS application...');
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'], // Configurable por env
+    logger: winstonLogger,
   });
 
   const configService = app.get(ConfigService);
@@ -45,7 +73,10 @@ async function bootstrap() {
     }),
   );
 
-  const allowedOrigins = configService.get<string>('CORS_ORIGINS', '').split(',').filter(Boolean);
+  const allowedOrigins = configService
+    .get<string>('CORS_ORIGINS', '')
+    .split(',')
+    .filter(Boolean);
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -57,16 +88,19 @@ async function bootstrap() {
       // Orígenes por defecto en desarrollo (Angular 4200 y React/Next 3000)
       const isDev = nodeEnv !== 'production';
       const devDefaults = ['http://localhost:3000', 'http://localhost:4200'];
-      
-      const whitelist = allowedOrigins.length > 0 
-        ? allowedOrigins 
-        : (isDev ? devDefaults : []);
+
+      const whitelist =
+        allowedOrigins.length > 0 ? allowedOrigins : isDev ? devDefaults : [];
 
       // En producción no permitimos wildcard (*) si credentials es true
       const hasWildcard = whitelist.includes('*');
       if (hasWildcard && !isDev) {
-        logger.warn('WARNING: CORS wildcard (*) is not allowed in production with credentials enabled!');
-        return callback(new Error('CORS wildcard not allowed in production with credentials'));
+        logger.warn(
+          'WARNING: CORS wildcard (*) is not allowed in production with credentials enabled!',
+        );
+        return callback(
+          new Error('CORS wildcard not allowed in production with credentials'),
+        );
       }
 
       if (whitelist.includes(origin) || (isDev && hasWildcard)) {

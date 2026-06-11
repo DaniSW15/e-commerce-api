@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { NotificationsController } from './notifications.controller';
@@ -13,7 +13,7 @@ import { AuthModule } from '@modules/auth/auth.module';
     BullModule.registerQueue({
       name: 'email',
     }),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, EmailProcessor],

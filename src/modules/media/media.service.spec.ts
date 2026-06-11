@@ -3,6 +3,7 @@ import { MediaService } from './media.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Media } from './entities/media.entity';
 import { ConfigService } from '@nestjs/config';
+import { ProductImage } from '../products/entities/product-image.entity';
 
 // Mock S3 Client
 jest.mock('@aws-sdk/client-s3', () => ({
@@ -19,6 +20,7 @@ const mockRepository = () => ({
   save: jest.fn(),
   findOne: jest.fn(),
   remove: jest.fn(),
+  count: jest.fn(),
 });
 
 const mockConfigService = () => ({
@@ -44,6 +46,10 @@ describe('MediaService', () => {
       providers: [
         MediaService,
         { provide: getRepositoryToken(Media), useValue: mockRepository() },
+        {
+          provide: getRepositoryToken(ProductImage),
+          useValue: mockRepository(),
+        },
         { provide: ConfigService, useValue: mockConfigService() },
       ],
     }).compile();

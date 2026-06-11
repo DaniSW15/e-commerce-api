@@ -31,17 +31,17 @@ describe('Product Search E2E Tests', () => {
 
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
-    // Limpiar datos previos (orden correcto para foreign keys)
-    await dataSource.query('DELETE FROM cart_items');
-    await dataSource.query('DELETE FROM carts');
-    await dataSource.query('DELETE FROM product_images');
-    await dataSource.query('DELETE FROM products');
-    await dataSource.query('DELETE FROM categories');
-    await dataSource.query('DELETE FROM refresh_tokens');
-    await dataSource.query('DELETE FROM login_attempts');
-    await dataSource.query('DELETE FROM user_addresses');
-    await dataSource.query('DELETE FROM user_profiles');
-    await dataSource.query('DELETE FROM users');
+    // Limpiar datos previos con CASCADE para evitar conflictos de claves foráneas
+    await dataSource.query('TRUNCATE TABLE cart_items CASCADE');
+    await dataSource.query('TRUNCATE TABLE carts CASCADE');
+    await dataSource.query('TRUNCATE TABLE product_images CASCADE');
+    await dataSource.query('TRUNCATE TABLE products CASCADE');
+    await dataSource.query('TRUNCATE TABLE categories CASCADE');
+    await dataSource.query('TRUNCATE TABLE refresh_tokens CASCADE');
+    await dataSource.query('TRUNCATE TABLE login_attempts CASCADE');
+    await dataSource.query('TRUNCATE TABLE user_addresses CASCADE');
+    await dataSource.query('TRUNCATE TABLE user_profiles CASCADE');
+    await dataSource.query('TRUNCATE TABLE users CASCADE');
 
     // Crear usuario admin para tests
     const registerRes = await request(app.getHttpServer())

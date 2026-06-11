@@ -5,6 +5,7 @@ import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
 import { DataSource, Repository } from 'typeorm';
 import { OrderItem } from './entities/order-item.entity';
 import { ProductsService } from '../products/products.service';
+import { CartService } from '../cart/cart.service';
 
 @Injectable()
 export class OrdersService {
@@ -14,15 +15,21 @@ export class OrdersService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly productsService: ProductsService,
+    private readonly cartService: CartService,
     private readonly dataSource: DataSource,
   ) {}
 
   async create(userId: string, dto: CreateOrderDto): Promise<Order> {
+    const cart = await this.cartService.getCart(userId);
+    if (!cart || !cart.items || cart.items.length === 0) {
+      throw new BadRequestException('Cannot place an order with an empty cart');
+    }
+
     let subtotal = 0;
     const orderItems: OrderItem[] = [];
 
-    for (const item of dto.items) {
-      const product = await this.productsService.findById(item.productId);
+    for (const item of cart.items) {
+      const product = item.product;
       if (product.stockQuantity < item.quantity) {
         throw new BadRequestException(
           `Insufficient stock for product ${product.name}. Available: ${product.stockQuantity}`,
@@ -37,7 +44,7 @@ export class OrdersService {
           productName: product.name,
           productPrice: product.price,
           quantity: item.quantity,
-          attributes: item.attributes || {},
+          attributes: {},
           subtotal: itemSubtotal,
         }),
       );
@@ -53,7 +60,7 @@ export class OrdersService {
       const newOrder = manager.create(Order, {
         orderNumber,
         userId,
-        status: OrderStatus.PENDING,
+        orderStatus: OrderStatus.PENDING,
         paymentStatus: PaymentStatus.PENDING,
         shippingAddress: dto.shippingAddress,
         billingAddress: dto.billingAddress,
@@ -64,17 +71,22 @@ export class OrdersService {
         total,
         currency: 'USD',
         notes: dto.notes,
-        items: orderItems,
+        orderItems: orderItems,
       });
 
       const savedOrder = await manager.save(newOrder);
 
       // Decrease stock quantity
-      for (const item of dto.items) {
+      for (const item of cart.items) {
         await this.productsService.updateStock(item.productId, -item.quantity);
       }
+
+      // Empty the cart
+      await this.cartService.clearCart(userId);
+
       return savedOrder;
     });
+
     return this.findById(order.id);
   }
 

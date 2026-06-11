@@ -4,8 +4,9 @@ import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
 import { Category } from './entities/category.entity';
 import { ProductImage } from './entities/product-image.entity';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { SearchSortBy } from './dto/search-product.dto';
 
-// Mock repository factory
 const mockRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
@@ -15,11 +16,25 @@ const mockRepository = () => ({
   update: jest.fn(),
   delete: jest.fn(),
   softDelete: jest.fn(),
+  createQueryBuilder: jest.fn(),
 });
 
 describe('ProductsService', () => {
   let service: ProductsService;
   let productRepo: ReturnType<typeof mockRepository>;
+  let categoryRepo: ReturnType<typeof mockRepository>;
+  let imageRepo: ReturnType<typeof mockRepository>;
+
+  const mockQueryBuilder = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -42,41 +57,98 @@ describe('ProductsService', () => {
 
     service = module.get<ProductsService>(ProductsService);
     productRepo = module.get(getRepositoryToken(Product));
+    categoryRepo = module.get(getRepositoryToken(Category));
+    imageRepo = module.get(getRepositoryToken(ProductImage));
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it('should create product', async () => {
-    const dto = {
-      sku: 'SKU-001',
-      name: 'Test',
-      slug: 'test',
-      price: 99.99,
-      stockQuantity: 100,
-    };
+  describe('createCategory', () => {
+    it('should throw ConflictException if category slug exists', async () => {
+      categoryRepo.findOne.mockResolvedValueOnce({ id: 'cat-id' });
+      await expect(service.createCategory({ name: 'Cat', slug: 'cat' })).rejects.toThrow(
+        ConflictException,
+      );
+    });
 
-    const savedProduct = { id: 'uuid', ...dto };
+    it('should create and save a new category', async () => {
+      categoryRepo.findOne.mockResolvedValueOnce(null);
+      const mockCat = { id: 'cat-id', name: 'Cat', slug: 'cat' };
+      categoryRepo.create.mockReturnValue(mockCat);
+      categoryRepo.save.mockResolvedValue(mockCat);
 
-    // Configurar mocks para cada llamada en orden:
-    // 1. Verificar SKU (debe devolver null - no existe)
-    productRepo.findOne.mockResolvedValueOnce(null);
+      const result = await service.createCategory({ name: 'Cat', slug: 'cat' });
+      expect(result).toEqual(mockCat);
+    });
+  });
 
-    // 2. Verificar slug (debe devolver null - no existe)
-    productRepo.findOne.mockResolvedValueOnce(null);
+  describe('createProduct', () => {
+    it('should throw ConflictException if sku exists', async () => {
+      productRepo.findOne.mockResolvedValueOnce({ id: 'p-id' });
+      await expect(
+        service.create({ sku: 'sku', name: 'p', slug: 'p', price: 10, stockQuantity: 5 }),
+      ).rejects.toThrow(ConflictException);
+    });
 
-    // 3. create() y save()
-    productRepo.create.mockReturnValue(dto);
-    productRepo.save.mockResolvedValue(savedProduct);
+    it('should throw ConflictException if slug exists', async () => {
+      productRepo.findOne.mockResolvedValueOnce(null); // sku check
+      productRepo.findOne.mockResolvedValueOnce({ id: 'p-id' }); // slug check
+      await expect(
+        service.create({ sku: 'sku', name: 'p', slug: 'p', price: 10, stockQuantity: 5 }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
 
-    // 4. findById al final (si tu service lo llama)
-    productRepo.findOne.mockResolvedValueOnce(savedProduct);
+  describe('findById', () => {
+    it('should throw NotFoundException if product not found', async () => {
+      productRepo.findOne.mockResolvedValueOnce(null);
+      await expect(service.findById('non-existent')).rejects.toThrow(NotFoundException);
+    });
 
-    const result = await service.create(dto);
+    it('should return product if found', async () => {
+      const mockProduct = { id: 'p-id', name: 'product' };
+      productRepo.findOne.mockResolvedValueOnce(mockProduct);
+      const result = await service.findById('p-id');
+      expect(result).toEqual(mockProduct);
+    });
+  });
 
-    expect(result).toHaveProperty('id');
-    expect(result.sku).toBe('SKU-001');
-    expect(productRepo.save).toHaveBeenCalled();
+  describe('search', () => {
+    it('should search products using query builder', async () => {
+      productRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.getManyAndCount.mockResolvedValueOnce([[{ id: 'p-id', name: 'Laptop' }], 1]);
+
+      const result = await service.search({
+        query: 'Laptop',
+        page: 1,
+        limit: 10,
+        sortBy: SearchSortBy.RELEVANCE,
+      });
+
+      expect(productRepo.createQueryBuilder).toHaveBeenCalled();
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+  });
+
+  describe('updateStock', () => {
+    it('should throw BadRequestException if stock goes below zero', async () => {
+      const mockProduct = { id: 'p-id', stockQuantity: 5 };
+      productRepo.findOne.mockResolvedValueOnce(mockProduct);
+
+      await expect(service.updateStock('p-id', -10)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should update stock and save product', async () => {
+      const mockProduct = { id: 'p-id', stockQuantity: 5 };
+      productRepo.findOne.mockResolvedValueOnce(mockProduct);
+      productRepo.save.mockImplementation((p) => Promise.resolve(p));
+
+      const result = await service.updateStock('p-id', 5);
+      expect(result.stockQuantity).toBe(10);
+      expect(productRepo.save).toHaveBeenCalled();
+    });
   });
 });

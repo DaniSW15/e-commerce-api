@@ -15,6 +15,8 @@ import { MediaModule } from './modules/media/media.module';
 import { BullModule } from '@nestjs/bull';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CartModule } from './modules/cart/cart.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { CartModule } from './modules/cart/cart.module';
     MediaModule,
     NotificationsModule,
     CartModule,
+    ReviewsModule,
+    WishlistModule,
   ],
   controllers: [],
   providers: [

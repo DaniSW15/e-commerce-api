@@ -151,28 +151,22 @@ export class ProductsService {
       .andWhere('product.deletedAt IS NULL');
 
     // Full-text search usando PostgreSQL tsvector
-    // Buscar en name y description con pesos diferentes
     if (query && query.trim()) {
       const likeQuery = `%${query}%`;
 
       qb.andWhere(
         `(
-          product.name ILIKE :likeQuery OR
-          product.description ILIKE :likeQuery OR
+          to_tsvector('spanish', coalesce(product.name, '') || ' ' || coalesce(product.description, '')) @@ plainto_tsquery('spanish', :queryRaw) OR
           product.sku ILIKE :likeQuery
         )`,
-        { likeQuery },
+        { queryRaw: query, likeQuery },
       );
 
       // Agregar ranking de relevancia si se ordena por relevancia
       if (sortBy === SearchSortBy.RELEVANCE) {
         qb.addSelect(
-          `CASE
-            WHEN product.name ILIKE :likeQuery THEN 3
-            WHEN product.sku ILIKE :likeQuery THEN 2
-            WHEN product.description ILIKE :likeQuery THEN 1
-            ELSE 0
-          END`,
+          `ts_rank(to_tsvector('spanish', coalesce(product.name, '') || ' ' || coalesce(product.description, '')), plainto_tsquery('spanish', :queryRaw)) +
+           (CASE WHEN product.sku ILIKE :likeQuery THEN 2.0 ELSE 0.0 END)`,
           'search_rank',
         );
       }

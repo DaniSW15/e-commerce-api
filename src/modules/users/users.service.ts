@@ -76,6 +76,7 @@ export class UsersService {
         twoFactorEnabled: true,
         twoFactorSecret: true,
         lastLoginAt: true,
+        emailVerified: true,
       },
     });
   }
@@ -214,12 +215,12 @@ export class UsersService {
 
   // ==================== STATUS METHODS ====================
 
-  async updateStatus(
-    userId: string,
-    status: 'active' | 'inactive' | 'locked',
-  ): Promise<void> {
-    await this.userRepository.update(userId, { status });
-  }
+  // async updateStatus(
+  //   userId: string,
+  //   status: 'active' | 'inactive' | 'locked',
+  // ): Promise<void> {
+  //   await this.userRepository.update(userId, { status });
+  // }
 
   async verifyEmail(userId: string): Promise<void> {
     await this.userRepository.update(userId, { emailVerified: true });
@@ -408,6 +409,66 @@ export class UsersService {
 
     await this.userRepository.restore(userId);
     return { message: 'Account restored successfully' };
+  }
+
+  // ==================== ADMIN METHODS ====================
+
+  async findFiltered(query: {
+    page?: number;
+    limit?: number;
+    email?: string;
+    role?: UserRole;
+    status?: string;
+  }) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.profile', 'profile');
+
+    if (query.email) {
+      queryBuilder.andWhere('user.email ILIKE :email', {
+        email: `%${query.email}%`,
+      });
+    }
+
+    if (query.role) {
+      queryBuilder.andWhere('user.role = :role', { role: query.role });
+    }
+
+    if (query.status) {
+      queryBuilder.andWhere('user.status = :status', { status: query.status });
+    }
+
+    queryBuilder.orderBy('user.createdAt', 'DESC').skip(skip).take(limit);
+
+    const [items, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      items: items.map((user) => this.sanitizeUser(user)),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updateStatus(id: string, status: string): Promise<User> {
+    const user = await this.findById(id);
+    user.status = status;
+    const savedUser = await this.userRepository.save(user);
+    return this.sanitizeUser(savedUser);
+  }
+
+  async updateRole(id: string, role: UserRole): Promise<User> {
+    const user = await this.findById(id);
+    user.role = role;
+    const savedUser = await this.userRepository.save(user);
+    return this.sanitizeUser(savedUser);
   }
 
   // ==================== HELPERS ====================

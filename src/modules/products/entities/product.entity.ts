@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Category } from './category.entity';
 import { ProductImage } from './product-image.entity';
+import { ProductReview } from './product-review.entity';
 
 export enum ProductStatus {
   DRAFT = 'draft',
@@ -76,6 +77,15 @@ export class Product {
 
   @OneToMany(() => ProductImage, (image) => image.product, { cascade: true })
   images: ProductImage[];
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.0 })
+  averageRating: number;
+
+  @Column({ default: 0 })
+  reviewCount: number;
+
+  @OneToMany(() => ProductReview, (review) => review.product, { cascade: true })
+  reviews: ProductReview[];
 
   @CreateDateColumn()
   createdAt: Date;

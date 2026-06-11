@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,6 +24,12 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
+import { GetUsersFilterDto } from './dto/get-users-filter.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { Roles } from '@/common/decorators';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { UserRole } from '@/common/enums';
 
 @ApiTags('users')
 @Controller('users')
@@ -112,5 +119,40 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Account permanently deleted' })
   async restoreAccount(@CurrentUser('id') userId: string) {
     return this.usersService.restoreAccount(userId);
+  }
+
+  // ==================== ADMIN ENDPOINTS ====================
+
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get paginated list of users (Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of users' })
+  async getUsers(@Query() filterDto: GetUsersFilterDto) {
+    return this.usersService.findFiltered(filterDto);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update user status (Admin only)' })
+  @ApiResponse({ status: 200, description: 'User status updated successfully' })
+  async updateUserStatus(
+    @Param('id') userId: string,
+    @Body() dto: UpdateUserStatusDto,
+  ) {
+    return this.usersService.updateStatus(userId, dto.status);
+  }
+
+  @Patch(':id/role')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Update user role (Admin only)' })
+  @ApiResponse({ status: 200, description: 'User role updated successfully' })
+  async updateUserRole(
+    @Param('id') userId: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.usersService.updateRole(userId, dto.role);
   }
 }

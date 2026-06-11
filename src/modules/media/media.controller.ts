@@ -7,11 +7,11 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   Body,
   ParseIntPipe,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -33,14 +33,14 @@ export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Post('upload')
-  @ApiOperation({ summary: 'Upload image' })
+  @ApiOperation({ summary: 'Upload multiple images' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('files', 5))
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFiles() files: any[],
     @Body('productId') productId?: string,
   ) {
-    return this.mediaService.uploadImage(file, productId);
+    return this.mediaService.uploadMultipleImages(files, productId);
   }
 
   @Delete(':id')

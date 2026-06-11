@@ -3,6 +3,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { UsersService } from '@users/users.service';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +26,7 @@ import * as QRCode from 'qrcode';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '@/common/enums';
 import { Login2FADto } from './dto/login-2fa.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -41,6 +44,8 @@ export class AuthService {
     private readonly redisService: RedisService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ==================== REGISTRO ====================
@@ -60,6 +65,38 @@ export class AuthService {
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
       });
+    }
+
+    // Generar y guardar token de verificación de email en Redis (6 dígitos, 24 horas exp)
+    const verificationToken = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+    await this.redisService.setex(
+      `email-verify:token:${user.id}`,
+      86400, // 24 horas
+      verificationToken,
+    );
+
+    // Encolar envío de correo de verificación
+    try {
+      await this.notificationsService.sendEmail({
+        to: user.email,
+        subject: 'Verificación de Correo Electrónico',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #333; text-align: center;">Verificación de Correo Electrónico</h2>
+            <p>Hola,</p>
+            <p>Gracias por registrarte en nuestra plataforma. Por favor, usa el siguiente código de verificación para completar tu registro:</p>
+            <div style="font-size: 24px; font-weight: bold; text-align: center; margin: 30px 0; letter-spacing: 5px; color: #4F46E5;">
+              ${verificationToken}
+            </div>
+            <p>Este código expira en 24 horas.</p>
+            <p>Si no creaste esta cuenta, puedes ignorar este correo.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      console.error('Failed to queue verification email:', err);
     }
 
     const tokens = await this.generateTokens(user);
@@ -82,6 +119,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Email not verified');
     }
 
     if (user.status === 'locked') {
@@ -621,5 +662,70 @@ export class AuthService {
       secret: user.twoFactorSecret,
       token: code,
     });
+  }
+
+  // ==================== VERIFICACIÓN DE EMAIL ====================
+  async verifyEmail(email: string, token: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email is already verified' };
+    }
+
+    const storedToken = await this.redisService.get(
+      `email-verify:token:${user.id}`,
+    );
+
+    if (!storedToken || storedToken !== token) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    await this.userRepository.update(user.id, { emailVerified: true });
+    await this.redisService.del(`email-verify:token:${user.id}`);
+
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.emailVerified) {
+      return { message: 'Email is already verified' };
+    }
+
+    const verificationToken = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+
+    await this.redisService.setex(
+      `email-verify:token:${user.id}`,
+      86400, // 24 horas
+      verificationToken,
+    );
+
+    await this.notificationsService.sendEmail({
+      to: user.email,
+      subject: 'Verificación de Correo Electrónico',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #333; text-align: center;">Verificación de Correo Electrónico</h2>
+          <p>Hola,</p>
+          <p>Has solicitado un nuevo código de verificación. Por favor, usa el siguiente código para completar tu registro:</p>
+          <div style="font-size: 24px; font-weight: bold; text-align: center; margin: 30px 0; letter-spacing: 5px; color: #4F46E5;">
+            ${verificationToken}
+          </div>
+          <p>Este código expira en 24 horas.</p>
+          <p>Si no solicitaste esto, puedes ignorar este correo.</p>
+        </div>
+      `,
+    });
+
+    return { message: 'Verification email sent successfully' };
   }
 }
