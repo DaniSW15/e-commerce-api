@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProductsService } from './products.service';
-import { Product, ProductStatus } from './entities/product.entity';
+import { Product } from './entities/product.entity';
 import { Category } from './entities/category.entity';
 import { ProductImage } from './entities/product-image.entity';
 import {
@@ -223,7 +223,7 @@ describe('ProductsService', () => {
         name: 'updated',
       });
 
-      const result = await service.update('p-id', {
+      await service.update('p-id', {
         name: 'updated',
         slug: 'new-slug',
       });

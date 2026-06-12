@@ -10,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 import { OrdersService } from '../orders/orders.service';
 import { OrderStatus } from '../orders/entities/order.entity';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import Stripe from 'stripe';
 
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => {

@@ -4,7 +4,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { UserRole } from '@/common/enums';
-import { ExecutionContext } from '@nestjs/common';
+
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -38,9 +38,9 @@ describe('UsersController', () => {
       providers: [{ provide: UsersService, useValue: mockUsersService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<UsersController>(UsersController);

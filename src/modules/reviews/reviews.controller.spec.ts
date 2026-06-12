@@ -4,7 +4,6 @@ import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UserRole } from '@/common/enums';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
@@ -23,7 +22,7 @@ describe('ReviewsController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
-        canActivate: (context: ExecutionContext) => true,
+        canActivate: () => true,
       })
       .compile();
 

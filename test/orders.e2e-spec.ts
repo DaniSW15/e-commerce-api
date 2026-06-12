@@ -12,7 +12,6 @@ describe('OrdersController (e2e) - Checkout from Cart', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let customerToken: string;
-  let adminToken: string;
   let productId: string;
   const customerEmail = `customer-${Date.now()}@example.com`;
   const adminEmail = `admin-${Date.now()}@example.com`;
@@ -47,13 +46,10 @@ describe('OrdersController (e2e) - Checkout from Cart', () => {
       role: 'admin',
     });
     await verifyUserEmail(app, adminEmail);
-    const adminLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminEmail,
-        password: 'admin123',
-      });
-    adminToken = adminLogin.body.access_token;
+    await request(app.getHttpServer()).post('/api/v1/auth/login').send({
+      email: adminEmail,
+      password: 'admin123',
+    });
 
     // 3. Crear categoría y producto como admin
     const cat = await dataSource.getRepository(Category).save({

@@ -193,7 +193,10 @@ describe('OrdersService', () => {
     it('should update status on valid transitions', async () => {
       const mockOrder = { id: 'o-1', orderStatus: OrderStatus.PENDING };
       orderRepo.findOne.mockResolvedValueOnce(mockOrder);
-      orderRepo.save.mockResolvedValueOnce({ ...mockOrder, orderStatus: OrderStatus.PAID });
+      orderRepo.save.mockResolvedValueOnce({
+        ...mockOrder,
+        orderStatus: OrderStatus.PAID,
+      });
 
       const result = await service.updateStatus('o-1', OrderStatus.PAID);
       expect(result.orderStatus).toBe(OrderStatus.PAID);
@@ -203,7 +206,9 @@ describe('OrdersService', () => {
       const mockOrder = { id: 'o-1', orderStatus: OrderStatus.PENDING };
       orderRepo.findOne.mockResolvedValueOnce(mockOrder);
 
-      await expect(service.updateStatus('o-1', OrderStatus.DELIVERED)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.updateStatus('o-1', OrderStatus.DELIVERED),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -212,14 +217,22 @@ describe('OrdersService', () => {
       const mockOrder = { id: 'o-1', userId: 'other-user' };
       orderRepo.findOne.mockResolvedValueOnce(mockOrder);
 
-      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(BadRequestException);
+      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if order is not pending', async () => {
-      const mockOrder = { id: 'o-1', userId: 'u-1', orderStatus: OrderStatus.SHIPPED };
+      const mockOrder = {
+        id: 'o-1',
+        userId: 'u-1',
+        orderStatus: OrderStatus.SHIPPED,
+      };
       orderRepo.findOne.mockResolvedValueOnce(mockOrder);
 
-      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(BadRequestException);
+      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should cancel order and restore stock', async () => {

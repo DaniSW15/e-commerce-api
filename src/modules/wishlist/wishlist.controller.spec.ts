@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WishlistController } from './wishlist.controller';
 import { WishlistService } from './wishlist.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
 
 describe('WishlistController', () => {
   let controller: WishlistController;
@@ -21,7 +20,7 @@ describe('WishlistController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
-        canActivate: (context: ExecutionContext) => true,
+        canActivate: () => true,
       })
       .compile();
 

@@ -14,7 +14,6 @@ import {
   DisableTwoFactorDto,
 } from './dto/two-factor.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -50,7 +49,7 @@ describe('AuthController', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<AuthController>(AuthController);

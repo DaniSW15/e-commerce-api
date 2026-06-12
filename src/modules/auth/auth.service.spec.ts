@@ -17,7 +17,6 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@/common/enums';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -43,7 +42,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: jest.Mocked<any>;
   let jwtService: jest.Mocked<any>;
-  let configService: jest.Mocked<any>;
   let redisService: jest.Mocked<any>;
   let notificationsService: jest.Mocked<any>;
   let userRepo: ReturnType<typeof mockRepository>;
@@ -95,15 +93,20 @@ describe('AuthService', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: getRepositoryToken(User), useValue: mockRepository() },
-        { provide: getRepositoryToken(RefreshToken), useValue: mockRepository() },
-        { provide: getRepositoryToken(PasswordReset), useValue: mockRepository() },
+        {
+          provide: getRepositoryToken(RefreshToken),
+          useValue: mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(PasswordReset),
+          useValue: mockRepository(),
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     usersService = module.get(UsersService);
     jwtService = module.get(JwtService);
-    configService = module.get(ConfigService);
     redisService = module.get(RedisService);
     notificationsService = module.get(NotificationsService);
     userRepo = module.get(getRepositoryToken(User));
@@ -166,21 +169,30 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException if account is locked', async () => {
-      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'locked' });
+      usersService.findByEmail.mockResolvedValue({
+        emailVerified: true,
+        status: 'locked',
+      });
       await expect(
         service.login({ email: 'locked@example.com', password: 'pwd' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw NotFoundException if account is deleted', async () => {
-      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'deleted' });
+      usersService.findByEmail.mockResolvedValue({
+        emailVerified: true,
+        status: 'deleted',
+      });
       await expect(
         service.login({ email: 'deleted@example.com', password: 'pwd' }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if account is suspended', async () => {
-      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'suspended' });
+      usersService.findByEmail.mockResolvedValue({
+        emailVerified: true,
+        status: 'suspended',
+      });
       await expect(
         service.login({ email: 'suspended@example.com', password: 'pwd' }),
       ).rejects.toThrow(ForbiddenException);
@@ -214,7 +226,10 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jwtService.sign.mockReturnValue('mock_temp_token');
 
-      const result = await service.login({ email: 'test@example.com', password: 'pwd' });
+      const result = await service.login({
+        email: 'test@example.com',
+        password: 'pwd',
+      });
       expect(result).toEqual({
         requiresTwoFactor: true,
         tempToken: 'mock_temp_token',
@@ -242,7 +257,11 @@ describe('AuthService', () => {
       // Mock verifyTwoFactorCode to return true
       jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(true);
 
-      const result = await service.login({ email: 'test@example.com', password: 'pwd', twoFactorCode: '123456' });
+      const result = await service.login({
+        email: 'test@example.com',
+        password: 'pwd',
+        twoFactorCode: '123456',
+      });
       expect(result).toHaveProperty('access_token');
     });
 
@@ -262,33 +281,51 @@ describe('AuthService', () => {
       jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(false);
 
       await expect(
-        service.login({ email: 'test@example.com', password: 'pwd', twoFactorCode: 'wrong' }),
+        service.login({
+          email: 'test@example.com',
+          password: 'pwd',
+          twoFactorCode: 'wrong',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('loginWith2FA', () => {
     it('should throw UnauthorizedException if temp token verification fails', async () => {
-      jwtService.verify.mockImplementationOnce(() => { throw new Error('fail'); });
-      await expect(service.loginWith2FA({ tempToken: 'invalid', twoFactorCode: '123' })).rejects.toThrow(UnauthorizedException);
+      jwtService.verify.mockImplementationOnce(() => {
+        throw new Error('fail');
+      });
+      await expect(
+        service.loginWith2FA({ tempToken: 'invalid', twoFactorCode: '123' }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException if token already used or expired', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-id', temp: true });
       redisService.get.mockResolvedValueOnce(null); // not found in redis
 
-      await expect(service.loginWith2FA({ tempToken: 'valid', twoFactorCode: '123' })).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.loginWith2FA({ tempToken: 'valid', twoFactorCode: '123' }),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should successfully login on valid 2FA code', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-id', temp: true });
       redisService.get.mockResolvedValueOnce('user-id');
       jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(true);
-      usersService.findById.mockResolvedValueOnce({ id: 'user-id', email: 'test@test.com', status: 'active', role: UserRole.CUSTOMER });
+      usersService.findById.mockResolvedValueOnce({
+        id: 'user-id',
+        email: 'test@test.com',
+        status: 'active',
+        role: UserRole.CUSTOMER,
+      });
       jwtService.sign.mockReturnValue('mock_access_token');
       refreshTokenRepo.create.mockReturnValue({ tokenHash: 'hash' });
 
-      const result = await service.loginWith2FA({ tempToken: 'valid', twoFactorCode: '123' });
+      const result = await service.loginWith2FA({
+        tempToken: 'valid',
+        twoFactorCode: '123',
+      });
       expect(result).toHaveProperty('access_token');
       expect(redisService.del).toHaveBeenCalled();
     });
@@ -315,7 +352,9 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException if stored token not found or invalid', async () => {
       refreshTokenRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.refreshTokens('invalid')).rejects.toThrow(UnauthorizedException);
+      await expect(service.refreshTokens('invalid')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -334,7 +373,9 @@ describe('AuthService', () => {
     it('should revoke refresh token and blacklist access token', async () => {
       const mockToken = { id: 1, revokedAt: null };
       refreshTokenRepo.findOne.mockResolvedValueOnce(mockToken);
-      jwtService.decode.mockReturnValueOnce({ exp: Math.floor(Date.now() / 1000) + 10 });
+      jwtService.decode.mockReturnValueOnce({
+        exp: Math.floor(Date.now() / 1000) + 10,
+      });
 
       const result = await service.logout('refresh', 'access');
       expect(result.success).toBe(true);
@@ -345,7 +386,9 @@ describe('AuthService', () => {
   describe('enableTwoFactor', () => {
     it('should throw BadRequestException if setup expired', async () => {
       redisService.get.mockResolvedValueOnce(null);
-      await expect(service.enableTwoFactor('u-1', '123')).rejects.toThrow(BadRequestException);
+      await expect(service.enableTwoFactor('u-1', '123')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should enable 2FA if setup code matches', async () => {
@@ -359,7 +402,10 @@ describe('AuthService', () => {
 
   describe('disableTwoFactor', () => {
     it('should disable 2FA if code matches', async () => {
-      usersService.findById.mockResolvedValueOnce({ id: 'u-1', twoFactorSecret: 'secret' });
+      usersService.findById.mockResolvedValueOnce({
+        id: 'u-1',
+        twoFactorSecret: 'secret',
+      });
       const result = await service.disableTwoFactor('u-1', '123456');
       expect(result.success).toBe(true);
     });
@@ -367,7 +413,10 @@ describe('AuthService', () => {
 
   describe('forgotPassword', () => {
     it('should generate password reset request', async () => {
-      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', email: 'test@test.com' });
+      usersService.findByEmail.mockResolvedValueOnce({
+        id: 'u-1',
+        email: 'test@test.com',
+      });
       passwordResetRepo.create.mockReturnValue({});
       passwordResetRepo.save.mockResolvedValueOnce({});
 
@@ -396,18 +445,28 @@ describe('AuthService', () => {
   describe('verifyEmail', () => {
     it('should throw NotFoundException if user not found', async () => {
       usersService.findByEmail.mockResolvedValueOnce(null);
-      await expect(service.verifyEmail('no@test.com', 'token')).rejects.toThrow(NotFoundException);
+      await expect(service.verifyEmail('no@test.com', 'token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if token is invalid', async () => {
-      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', emailVerified: false });
+      usersService.findByEmail.mockResolvedValueOnce({
+        id: 'u-1',
+        emailVerified: false,
+      });
       redisService.get.mockResolvedValueOnce('correct_token');
 
-      await expect(service.verifyEmail('t@t.com', 'wrong_token')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.verifyEmail('t@t.com', 'wrong_token'),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should verify email successfully', async () => {
-      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', emailVerified: false });
+      usersService.findByEmail.mockResolvedValueOnce({
+        id: 'u-1',
+        emailVerified: false,
+      });
       redisService.get.mockResolvedValueOnce('token');
       userRepo.update.mockResolvedValueOnce({});
 
@@ -418,7 +477,11 @@ describe('AuthService', () => {
 
   describe('resendVerificationEmail', () => {
     it('should resend verification token', async () => {
-      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', email: 't@t.com', emailVerified: false });
+      usersService.findByEmail.mockResolvedValueOnce({
+        id: 'u-1',
+        email: 't@t.com',
+        emailVerified: false,
+      });
       redisService.setex.mockResolvedValueOnce({});
       notificationsService.sendEmail.mockResolvedValueOnce({});
 

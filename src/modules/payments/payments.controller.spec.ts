@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
+
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 
 describe('PaymentsController', () => {
@@ -21,7 +21,7 @@ describe('PaymentsController', () => {
       providers: [{ provide: PaymentsService, useValue: mockPaymentsService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<PaymentsController>(PaymentsController);

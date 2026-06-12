@@ -3,7 +3,6 @@ import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
-import { ExecutionContext } from '@nestjs/common';
 
 describe('MediaController', () => {
   let controller: MediaController;
@@ -21,9 +20,9 @@ describe('MediaController', () => {
       providers: [{ provide: MediaService, useValue: mockMediaService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<MediaController>(MediaController);

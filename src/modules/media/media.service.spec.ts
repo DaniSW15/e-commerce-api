@@ -95,19 +95,27 @@ describe('MediaService', () => {
 
     it('should throw BadRequestException if file is not an image', async () => {
       const file = mockFile('application/pdf', 1000);
-      await expect(service.uploadImage(file)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadImage(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if file is too large', async () => {
       const file = mockFile('image/png', 6 * 1024 * 1024); // 6MB
-      await expect(service.uploadImage(file)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadImage(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if sharp fails', async () => {
       const file = mockFile('image/png', 1000);
-      jest.spyOn(mockSharpInstance, 'toBuffer').mockRejectedValueOnce(new Error('Sharp processing error'));
+      jest
+        .spyOn(mockSharpInstance, 'toBuffer')
+        .mockRejectedValueOnce(new Error('Sharp processing error'));
 
-      await expect(service.uploadImage(file)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadImage(file)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should successfully upload single image without product ID', async () => {
@@ -127,11 +135,13 @@ describe('MediaService', () => {
 
       const result = await service.uploadImage(file);
 
-      expect(mediaRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        originalName: 'test.png',
-        mimeType: 'image/webp',
-        type: MediaType.IMAGE,
-      }));
+      expect(mediaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          originalName: 'test.png',
+          mimeType: 'image/webp',
+          type: MediaType.IMAGE,
+        }),
+      );
       expect(mediaRepo.save).toHaveBeenCalled();
       expect(result).toEqual(mockSavedMedia);
     });
@@ -155,12 +165,16 @@ describe('MediaService', () => {
 
       const result = await service.uploadImage(file, 'product-id');
 
-      expect(productImageRepo.count).toHaveBeenCalledWith({ where: { productId: 'product-id' } });
-      expect(productImageRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        productId: 'product-id',
-        isPrimary: true,
-        sortOrder: 0,
-      }));
+      expect(productImageRepo.count).toHaveBeenCalledWith({
+        where: { productId: 'product-id' },
+      });
+      expect(productImageRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productId: 'product-id',
+          isPrimary: true,
+          sortOrder: 0,
+        }),
+      );
       expect(productImageRepo.save).toHaveBeenCalled();
       expect(result).toEqual(mockSavedMedia);
     });
@@ -178,11 +192,13 @@ describe('MediaService', () => {
 
       await service.uploadImage(file, 'product-id');
 
-      expect(productImageRepo.create).toHaveBeenCalledWith(expect.objectContaining({
-        productId: 'product-id',
-        isPrimary: false,
-        sortOrder: 2,
-      }));
+      expect(productImageRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productId: 'product-id',
+          isPrimary: false,
+          sortOrder: 2,
+        }),
+      );
     });
   });
 
@@ -201,8 +217,12 @@ describe('MediaService', () => {
     });
 
     it('should throw BadRequestException if files array is empty or undefined', async () => {
-      await expect(service.uploadMultipleImages([])).rejects.toThrow(BadRequestException);
-      await expect(service.uploadMultipleImages(null as any)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadMultipleImages([])).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.uploadMultipleImages(null as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if files array exceeds 5', async () => {
@@ -214,7 +234,9 @@ describe('MediaService', () => {
         mockFile('5.png'),
         mockFile('6.png'),
       ];
-      await expect(service.uploadMultipleImages(files)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadMultipleImages(files)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should upload multiple images successfully', async () => {
@@ -233,7 +255,9 @@ describe('MediaService', () => {
   describe('deleteImage', () => {
     it('should throw BadRequestException if media is not found', async () => {
       mediaRepo.findOne.mockResolvedValue(null);
-      await expect(service.deleteImage('invalid-id')).rejects.toThrow(BadRequestException);
+      await expect(service.deleteImage('invalid-id')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should delete media from S3 and DB (no product ID)', async () => {
@@ -261,7 +285,10 @@ describe('MediaService', () => {
       await service.deleteImage('media-uuid');
 
       expect(productImageRepo.findOne).toHaveBeenCalledWith({
-        where: { productId: 'product-id', url: 'https://cdn.example.com/test.jpg' },
+        where: {
+          productId: 'product-id',
+          url: 'https://cdn.example.com/test.jpg',
+        },
       });
       expect(productImageRepo.remove).toHaveBeenCalledWith(mockProductImage);
       expect(mediaRepo.remove).toHaveBeenCalledWith(media);

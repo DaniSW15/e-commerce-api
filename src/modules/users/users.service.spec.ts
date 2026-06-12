@@ -1,11 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
-import { User, UserStatus } from './entities/user.entity';
+import { User } from './entities/user.entity';
 import { UserProfile } from './entities/user-profile.entity';
 import { LoginAttempt } from './entities/login-attempt.entity';
 import { UserAddress } from './entities/user-address.entity';
-import { ConflictException, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UserRole } from '@/common/enums';
 import { AddressType } from './entities/user-address.entity';
 import * as bcrypt from 'bcrypt';
@@ -41,9 +46,18 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: mockRepository() },
-        { provide: getRepositoryToken(UserProfile), useValue: mockRepository() },
-        { provide: getRepositoryToken(LoginAttempt), useValue: mockRepository() },
-        { provide: getRepositoryToken(UserAddress), useValue: mockRepository() },
+        {
+          provide: getRepositoryToken(UserProfile),
+          useValue: mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(LoginAttempt),
+          useValue: mockRepository(),
+        },
+        {
+          provide: getRepositoryToken(UserAddress),
+          useValue: mockRepository(),
+        },
       ],
     }).compile();
 
@@ -117,7 +131,9 @@ describe('UsersService', () => {
   describe('findById', () => {
     it('should throw NotFoundException if user is not found', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.findById('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.findById('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return the user if found', async () => {
@@ -225,7 +241,10 @@ describe('UsersService', () => {
     });
 
     it('should get 2FA secret', async () => {
-      userRepo.findOne.mockResolvedValueOnce({ id: 'u-1', twoFactorSecret: 'secret' });
+      userRepo.findOne.mockResolvedValueOnce({
+        id: 'u-1',
+        twoFactorSecret: 'secret',
+      });
       const result = await service.getTwoFactorSecret('u-1');
       expect(result).toBe('secret');
     });
@@ -235,7 +254,10 @@ describe('UsersService', () => {
     it('should update password for email', async () => {
       userRepo.update.mockResolvedValueOnce({});
       await service.updatePassword('test@test.com', 'newpass');
-      expect(userRepo.update).toHaveBeenCalledWith({ email: 'test@test.com' }, { password: 'hashedpassword' });
+      expect(userRepo.update).toHaveBeenCalledWith(
+        { email: 'test@test.com' },
+        { password: 'hashedpassword' },
+      );
     });
 
     it('should change password if current matches', async () => {
@@ -245,7 +267,9 @@ describe('UsersService', () => {
       userRepo.update.mockResolvedValueOnce({});
 
       await service.changePassword('u-1', 'oldpass', 'newpass');
-      expect(userRepo.update).toHaveBeenCalledWith('u-1', { password: 'hashedpassword' });
+      expect(userRepo.update).toHaveBeenCalledWith('u-1', {
+        password: 'hashedpassword',
+      });
     });
 
     it('should throw BadRequestException on change password if current is incorrect', async () => {
@@ -253,7 +277,9 @@ describe('UsersService', () => {
       userRepo.findOne.mockResolvedValueOnce(user);
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
-      await expect(service.changePassword('u-1', 'wrongpass', 'newpass')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.changePassword('u-1', 'wrongpass', 'newpass'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -261,14 +287,18 @@ describe('UsersService', () => {
     it('should update emailVerified to true', async () => {
       userRepo.update.mockResolvedValueOnce({});
       await service.verifyEmail('u-1');
-      expect(userRepo.update).toHaveBeenCalledWith('u-1', { emailVerified: true });
+      expect(userRepo.update).toHaveBeenCalledWith('u-1', {
+        emailVerified: true,
+      });
     });
   });
 
   describe('findByIdWithTokens', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.findByIdWithTokens('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.findByIdWithTokens('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return user with filtered active tokens', async () => {
@@ -291,11 +321,18 @@ describe('UsersService', () => {
   describe('getProfile', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.getProfile('u-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getProfile('u-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should return sanitized user profile', async () => {
-      const user = { id: 'u-1', password: 'pwd', twoFactorSecret: 'secret', profile: { firstName: 'John' } };
+      const user = {
+        id: 'u-1',
+        password: 'pwd',
+        twoFactorSecret: 'secret',
+        profile: { firstName: 'John' },
+      };
       userRepo.findOne.mockResolvedValueOnce(user);
       const result = (await service.getProfile('u-1')) as any;
       expect(result.password).toBeUndefined();
@@ -307,14 +344,19 @@ describe('UsersService', () => {
   describe('updateProfile', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.updateProfile('u-1', {})).rejects.toThrow(NotFoundException);
+      await expect(service.updateProfile('u-1', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should update profile and create profile object if not present', async () => {
       const user = { id: 'u-1', profile: null };
       userRepo.findOne.mockResolvedValueOnce(user);
       profileRepo.save.mockResolvedValueOnce({});
-      const result = (await service.updateProfile('u-1', { firstName: 'New', dateOfBirth: '1990-01-01' })) as any;
+      await service.updateProfile('u-1', {
+        firstName: 'New',
+        dateOfBirth: '1990-01-01',
+      });
       expect(profileRepo.save).toHaveBeenCalled();
     });
   });
@@ -328,7 +370,9 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException when creating address for non-existent user', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.createAddress('u-1', {} as any)).rejects.toThrow(NotFoundException);
+      await expect(service.createAddress('u-1', {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should create default address and unset others of same type', async () => {
@@ -338,29 +382,42 @@ describe('UsersService', () => {
       addressRepo.create.mockReturnValue({});
       addressRepo.save.mockResolvedValueOnce({ id: 'addr-1' });
 
-      const result = await service.createAddress('u-1', { type: AddressType.SHIPPING, isDefault: true } as any);
+      await service.createAddress('u-1', {
+        type: AddressType.SHIPPING,
+        isDefault: true,
+      } as any);
       expect(addressRepo.update).toHaveBeenCalled();
       expect(addressRepo.save).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when updating non-existent address', async () => {
       addressRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.updateAddress('u-1', 'addr-1', {})).rejects.toThrow(NotFoundException);
+      await expect(service.updateAddress('u-1', 'addr-1', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should update address and handle isDefault logic', async () => {
-      const address = { id: 'addr-1', type: AddressType.SHIPPING, isDefault: false };
+      const address = {
+        id: 'addr-1',
+        type: AddressType.SHIPPING,
+        isDefault: false,
+      };
       addressRepo.findOne.mockResolvedValueOnce(address);
       addressRepo.update.mockResolvedValueOnce({});
       addressRepo.save.mockResolvedValueOnce({ ...address, isDefault: true });
 
-      const result = await service.updateAddress('u-1', 'addr-1', { isDefault: true });
+      await service.updateAddress('u-1', 'addr-1', {
+        isDefault: true,
+      });
       expect(addressRepo.update).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException on deleting non-existent address', async () => {
       addressRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.deleteAddress('u-1', 'addr-1')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteAddress('u-1', 'addr-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should delete address', async () => {
@@ -376,11 +433,16 @@ describe('UsersService', () => {
   describe('deleteAccount', () => {
     it('should throw NotFoundException if user not found', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.deleteAccount('u-1')).rejects.toThrow(NotFoundException);
+      await expect(service.deleteAccount('u-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should anonymize and soft delete account', async () => {
-      const user = { id: 'u-1', profile: { firstName: 'John', lastName: 'Doe' } };
+      const user = {
+        id: 'u-1',
+        profile: { firstName: 'John', lastName: 'Doe' },
+      };
       userRepo.findOne.mockResolvedValueOnce(user);
       profileRepo.save.mockResolvedValueOnce({});
       userRepo.softDelete.mockResolvedValueOnce({});
@@ -396,17 +458,27 @@ describe('UsersService', () => {
   describe('restoreAccount', () => {
     it('should throw NotFoundException if account cannot be restored', async () => {
       userRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.restoreAccount('u-1')).rejects.toThrow(NotFoundException);
+      await expect(service.restoreAccount('u-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException if restore window has expired (30 days)', async () => {
-      const user = { id: 'u-1', deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) };
+      const user = {
+        id: 'u-1',
+        deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+      };
       userRepo.findOne.mockResolvedValueOnce(user);
-      await expect(service.restoreAccount('u-1')).rejects.toThrow(ForbiddenException);
+      await expect(service.restoreAccount('u-1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should restore account if within window', async () => {
-      const user = { id: 'u-1', deletedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) };
+      const user = {
+        id: 'u-1',
+        deletedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      };
       userRepo.findOne.mockResolvedValueOnce(user);
       userRepo.restore.mockResolvedValueOnce({});
 
@@ -427,7 +499,11 @@ describe('UsersService', () => {
       };
       userRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findFiltered({ email: 'test', role: UserRole.CUSTOMER, status: 'active' });
+      const result = await service.findFiltered({
+        email: 'test',
+        role: UserRole.CUSTOMER,
+        status: 'active',
+      });
       expect(result.items).toEqual([]);
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledTimes(3);
     });

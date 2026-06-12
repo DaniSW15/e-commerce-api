@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CartController } from './cart.controller';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
+
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 
@@ -24,7 +24,7 @@ describe('CartController', () => {
       providers: [{ provide: CartService, useValue: mockCartService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<CartController>(CartController);

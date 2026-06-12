@@ -3,7 +3,6 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 import { PaymentsService } from '../payments.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException } from '@nestjs/common';
-import Stripe from 'stripe';
 
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => {

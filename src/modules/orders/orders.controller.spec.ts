@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ExecutionContext, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 
 describe('OrdersController', () => {
@@ -22,7 +22,7 @@ describe('OrdersController', () => {
       providers: [{ provide: OrdersService, useValue: mockOrdersService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: (context: ExecutionContext) => true })
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<OrdersController>(OrdersController);
@@ -83,13 +83,18 @@ describe('OrdersController', () => {
       const order = { id: 'o-1', userId: 'other-user' };
       service.findById.mockResolvedValueOnce(order);
 
-      await expect(controller.findById('u-1', 'o-1')).rejects.toThrow(NotFoundException);
+      await expect(controller.findById('u-1', 'o-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('cancel', () => {
     it('should call service.cancel', async () => {
-      service.cancel.mockResolvedValueOnce({ id: 'o-1', orderStatus: 'cancelled' });
+      service.cancel.mockResolvedValueOnce({
+        id: 'o-1',
+        orderStatus: 'cancelled',
+      });
 
       const result = await controller.cancel('u-1', 'o-1');
       expect(result).toEqual({ id: 'o-1', orderStatus: 'cancelled' });
