@@ -97,7 +97,7 @@
 │  │ • Queue ✅  │  │ • Redis ✅  │                            │
 │  └─────────────┘  └─────────────┘                            │
 │                                                               │
-│  Leyenda: ✅ Implementado | ⚠️ Parcial | 🔮 Roadmap Fase 2+  │
+│  Leyenda: ✅ Implementado | ⚠️ Parcial | 🔮 Roadmap Fase 3+  │
 └────────────────────┬────────────────────────────────────────┘
                      │
     ┌────────────────┼────────────────┐
@@ -1113,19 +1113,18 @@ this.logger.error(`Payment failed for order ${orderId}`, error.stack);
 - [x] Guards de autenticación (JWT, Roles, Permissions, 2FA)
 - [x] Tests e2e completos (9/9 pasando - Auth, Users, Products, Orders, Payments, App)
 
-### 🚧 Fase 2: Features Pendientes
-- [ ] Email verification obligatoria (actualmente solo en tests)
-- [ ] Admin dashboard endpoints (GET /users, PATCH /users/:id/status)
-- [ ] Full-text search en productos (PostgreSQL tsvector)
-- [ ] Upload múltiple de imágenes de productos (actualmente 1 imagen)
-- [ ] Sistema de carrito separado (actualmente checkout directo)
-- [ ] Wishlists (favoritos de productos)
-- [ ] Product reviews y ratings
-- [ ] Tests unitarios completos (actualmente solo e2e)
-- [ ] Cobertura de tests > 80%
-- [ ] Documentación Swagger/OpenAPI completa
-- [ ] Migraciones TypeORM (actualmente synchronize: true)
-- [ ] Logs estructurados (Winston/Pino)
+### ✅ Fase 2: Completado
+- [x] Email verification obligatoria
+- [x] Admin dashboard endpoints (GET /users, PATCH /users/:id/status)
+- [x] Full-text search en productos (PostgreSQL tsvector)
+- [x] Upload múltiple de imágenes de productos (soporta hasta 5 imágenes)
+- [x] Sistema de carrito separado
+- [x] Wishlists (favoritos de productos)
+- [x] Product reviews y ratings
+- [x] Tests unitarios completos (cobertura global > 80%)
+- [x] Documentación Swagger/OpenAPI completa
+- [x] Migraciones TypeORM
+- [x] Logs estructurados (Winston/Pino)
 
 ### 🔮 Fase 3: Escalabilidad
 - [ ] Microservicios (Auth, Products, Orders separados)

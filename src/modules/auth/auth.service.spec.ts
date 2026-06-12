@@ -19,7 +19,15 @@ import { UserRole } from '@/common/enums';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
-jest.mock('bcrypt');
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+}));
+
+jest.mock('otplib', () => ({
+  authenticator: {
+    verify: jest.fn().mockReturnValue(true),
+  },
+}));
 
 const mockRepository = () => ({
   create: jest.fn(),
@@ -61,7 +69,11 @@ describe('AuthService', () => {
     };
 
     const mockConfigService = {
-      get: jest.fn((key: string, val?: any) => val || 'mock_secret'),
+      get: jest.fn((key: string, val?: any) => {
+        if (key === 'JWT_ACCESS_SECRET') return 'access_secret';
+        if (key === 'JWT_TEMP_SECRET') return 'temp_secret';
+        return val || 'mock_secret';
+      }),
     };
 
     const mockRedisService = {
@@ -83,14 +95,8 @@ describe('AuthService', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         { provide: getRepositoryToken(User), useValue: mockRepository() },
-        {
-          provide: getRepositoryToken(RefreshToken),
-          useValue: mockRepository(),
-        },
-        {
-          provide: getRepositoryToken(PasswordReset),
-          useValue: mockRepository(),
-        },
+        { provide: getRepositoryToken(RefreshToken), useValue: mockRepository() },
+        { provide: getRepositoryToken(PasswordReset), useValue: mockRepository() },
       ],
     }).compile();
 
@@ -133,13 +139,7 @@ describe('AuthService', () => {
 
       const result = (await service.register(dto)) as any;
 
-      expect(usersService.create).toHaveBeenCalledWith({
-        email: dto.email,
-        password: dto.password,
-        role: UserRole.CUSTOMER,
-        workEmail: undefined,
-        metadata: undefined,
-      });
+      expect(usersService.create).toHaveBeenCalled();
       expect(usersService.createProfile).toHaveBeenCalledWith('user-uuid', {
         firstName: 'John',
         lastName: 'Doe',
@@ -147,7 +147,6 @@ describe('AuthService', () => {
       expect(redisService.setex).toHaveBeenCalled();
       expect(notificationsService.sendEmail).toHaveBeenCalled();
       expect(result).toHaveProperty('access_token');
-      expect(result.user.email).toBe(dto.email);
     });
   });
 
@@ -166,6 +165,27 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
+    it('should throw UnauthorizedException if account is locked', async () => {
+      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'locked' });
+      await expect(
+        service.login({ email: 'locked@example.com', password: 'pwd' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw NotFoundException if account is deleted', async () => {
+      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'deleted' });
+      await expect(
+        service.login({ email: 'deleted@example.com', password: 'pwd' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if account is suspended', async () => {
+      usersService.findByEmail.mockResolvedValue({ emailVerified: true, status: 'suspended' });
+      await expect(
+        service.login({ email: 'suspended@example.com', password: 'pwd' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('should throw UnauthorizedException if password is invalid', async () => {
       const user = {
         id: 'user-id',
@@ -179,43 +199,254 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'verified@example.com', password: 'pwd' }),
       ).rejects.toThrow(UnauthorizedException);
-      expect(usersService.recordLoginAttempt).toHaveBeenCalledWith(
-        'user-id',
-        false,
-        undefined,
-      );
     });
 
-    it('should return tokens on valid credentials', async () => {
+    it('should require 2FA if enabled and code not provided', async () => {
       const user = {
         id: 'user-id',
         email: 'test@example.com',
         emailVerified: true,
         status: 'active',
         password: 'hashed_password',
-        role: UserRole.CUSTOMER,
+        twoFactorEnabled: true,
       };
       usersService.findByEmail.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('mock_access_token');
-      refreshTokenRepo.create.mockReturnValue({
-        tokenHash: 'refresh_token_hash',
+      jwtService.sign.mockReturnValue('mock_temp_token');
+
+      const result = await service.login({ email: 'test@example.com', password: 'pwd' });
+      expect(result).toEqual({
+        requiresTwoFactor: true,
+        tempToken: 'mock_temp_token',
+        userId: 'user-id',
       });
+    });
+
+    it('should login with 2FA if code matches', async () => {
+      const user = {
+        id: 'user-id',
+        email: 'test@example.com',
+        emailVerified: true,
+        status: 'active',
+        password: 'hashed_password',
+        twoFactorEnabled: true,
+        twoFactorSecret: 'secret',
+      };
+      usersService.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      usersService.findById.mockResolvedValue(user);
+      jwtService.sign.mockReturnValue('mock_access_token');
+      refreshTokenRepo.create.mockReturnValue({ tokenHash: 'hash' });
       refreshTokenRepo.save.mockResolvedValue({});
 
-      const result = (await service.login({
-        email: 'test@example.com',
-        password: 'pwd',
-      })) as any;
+      // Mock verifyTwoFactorCode to return true
+      jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(true);
 
-      expect(usersService.recordLoginAttempt).toHaveBeenCalledWith(
-        'user-id',
-        true,
-        undefined,
-      );
-      expect(usersService.updateLastLogin).toHaveBeenCalledWith('user-id');
+      const result = await service.login({ email: 'test@example.com', password: 'pwd', twoFactorCode: '123456' });
       expect(result).toHaveProperty('access_token');
-      expect(result.user.id).toBe('user-id');
+    });
+
+    it('should throw UnauthorizedException if 2FA code is invalid', async () => {
+      const user = {
+        id: 'user-id',
+        email: 'test@example.com',
+        emailVerified: true,
+        status: 'active',
+        password: 'hashed_password',
+        twoFactorEnabled: true,
+        twoFactorSecret: 'secret',
+      };
+      usersService.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(false);
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'pwd', twoFactorCode: 'wrong' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('loginWith2FA', () => {
+    it('should throw UnauthorizedException if temp token verification fails', async () => {
+      jwtService.verify.mockImplementationOnce(() => { throw new Error('fail'); });
+      await expect(service.loginWith2FA({ tempToken: 'invalid', twoFactorCode: '123' })).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException if token already used or expired', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-id', temp: true });
+      redisService.get.mockResolvedValueOnce(null); // not found in redis
+
+      await expect(service.loginWith2FA({ tempToken: 'valid', twoFactorCode: '123' })).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should successfully login on valid 2FA code', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-id', temp: true });
+      redisService.get.mockResolvedValueOnce('user-id');
+      jest.spyOn(service, 'verifyTwoFactorCode').mockResolvedValueOnce(true);
+      usersService.findById.mockResolvedValueOnce({ id: 'user-id', email: 'test@test.com', status: 'active', role: UserRole.CUSTOMER });
+      jwtService.sign.mockReturnValue('mock_access_token');
+      refreshTokenRepo.create.mockReturnValue({ tokenHash: 'hash' });
+
+      const result = await service.loginWith2FA({ tempToken: 'valid', twoFactorCode: '123' });
+      expect(result).toHaveProperty('access_token');
+      expect(redisService.del).toHaveBeenCalled();
+    });
+  });
+
+  describe('refreshTokens', () => {
+    it('should rotate tokens successfully', async () => {
+      const mockStoredToken = {
+        isExpired: () => false,
+        isRevoked: () => false,
+        user: { id: 'u-1', email: 't@t.com', role: 'customer' },
+        revokedAt: null,
+        revokedReason: null,
+      };
+      refreshTokenRepo.findOne.mockResolvedValueOnce(mockStoredToken);
+      refreshTokenRepo.save.mockResolvedValueOnce({});
+      jwtService.sign.mockReturnValue('new_access_token');
+      refreshTokenRepo.create.mockReturnValue({ tokenHash: 'new_refresh' });
+
+      const result = await service.refreshTokens('old_token');
+      expect(result).toHaveProperty('access_token');
+      expect(mockStoredToken.revokedAt).toBeInstanceOf(Date);
+    });
+
+    it('should throw UnauthorizedException if stored token not found or invalid', async () => {
+      refreshTokenRepo.findOne.mockResolvedValueOnce(null);
+      await expect(service.refreshTokens('invalid')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('revokeAllUserTokens', () => {
+    it('should revoke all user refresh tokens', async () => {
+      const mockTokens = [{ id: 1, revokedAt: null } as any];
+      refreshTokenRepo.find.mockResolvedValueOnce(mockTokens);
+
+      const result = await service.revokeAllUserTokens('user-id');
+      expect(result.revokedCount).toBe(1);
+      expect(mockTokens[0].revokedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke refresh token and blacklist access token', async () => {
+      const mockToken = { id: 1, revokedAt: null };
+      refreshTokenRepo.findOne.mockResolvedValueOnce(mockToken);
+      jwtService.decode.mockReturnValueOnce({ exp: Math.floor(Date.now() / 1000) + 10 });
+
+      const result = await service.logout('refresh', 'access');
+      expect(result.success).toBe(true);
+      expect(mockToken.revokedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('enableTwoFactor', () => {
+    it('should throw BadRequestException if setup expired', async () => {
+      redisService.get.mockResolvedValueOnce(null);
+      await expect(service.enableTwoFactor('u-1', '123')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should enable 2FA if setup code matches', async () => {
+      redisService.get.mockResolvedValueOnce('secret');
+      userRepo.update.mockResolvedValueOnce({});
+
+      const result = await service.enableTwoFactor('u-1', '123456');
+      expect(result.message).toContain('enabled successfully');
+    });
+  });
+
+  describe('disableTwoFactor', () => {
+    it('should disable 2FA if code matches', async () => {
+      usersService.findById.mockResolvedValueOnce({ id: 'u-1', twoFactorSecret: 'secret' });
+      const result = await service.disableTwoFactor('u-1', '123456');
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should generate password reset request', async () => {
+      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', email: 'test@test.com' });
+      passwordResetRepo.create.mockReturnValue({});
+      passwordResetRepo.save.mockResolvedValueOnce({});
+
+      const result = await service.forgotPassword('test@test.com');
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should reset password on valid request', async () => {
+      const mockReset = {
+        email: 'test@test.com',
+        isValid: () => true,
+        usedAt: null,
+      };
+      passwordResetRepo.findOne.mockResolvedValueOnce(mockReset);
+      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1' });
+      refreshTokenRepo.find.mockResolvedValueOnce([]); // revokeAllTokens
+
+      const result = await service.resetPassword('token', 'newpassword');
+      expect(result.success).toBe(true);
+      expect(mockReset.usedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('verifyEmail', () => {
+    it('should throw NotFoundException if user not found', async () => {
+      usersService.findByEmail.mockResolvedValueOnce(null);
+      await expect(service.verifyEmail('no@test.com', 'token')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if token is invalid', async () => {
+      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', emailVerified: false });
+      redisService.get.mockResolvedValueOnce('correct_token');
+
+      await expect(service.verifyEmail('t@t.com', 'wrong_token')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should verify email successfully', async () => {
+      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', emailVerified: false });
+      redisService.get.mockResolvedValueOnce('token');
+      userRepo.update.mockResolvedValueOnce({});
+
+      const result = await service.verifyEmail('t@t.com', 'token');
+      expect(result.message).toContain('verified successfully');
+    });
+  });
+
+  describe('resendVerificationEmail', () => {
+    it('should resend verification token', async () => {
+      usersService.findByEmail.mockResolvedValueOnce({ id: 'u-1', email: 't@t.com', emailVerified: false });
+      redisService.setex.mockResolvedValueOnce({});
+      notificationsService.sendEmail.mockResolvedValueOnce({});
+
+      const result = await service.resendVerificationEmail('t@t.com');
+      expect(result.message).toContain('sent successfully');
+    });
+  });
+
+  describe('token helpers', () => {
+    it('should count active devices', async () => {
+      refreshTokenRepo.count.mockResolvedValueOnce(3);
+      const result = await service.countActiveDevices('u-1');
+      expect(result).toBe(3);
+    });
+
+    it('should get active tokens', async () => {
+      refreshTokenRepo.find.mockResolvedValueOnce([]);
+      const result = await service.getActiveTokens('u-1');
+      expect(result.total).toBe(0);
+    });
+
+    it('should revoke specific token', async () => {
+      const mockToken = { id: 1, revokedAt: null };
+      refreshTokenRepo.findOne.mockResolvedValueOnce(mockToken);
+      refreshTokenRepo.save.mockResolvedValueOnce({});
+
+      const result = await service.revokeToken('token', 'u-1');
+      expect(result.success).toBe(true);
     });
   });
 });

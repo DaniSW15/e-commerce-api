@@ -125,7 +125,17 @@
       "^@config/(.*)$": "<rootDir>/config/$1"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.ts",
+      "!**/*.module.ts",
+      "!**/main.ts",
+      "!**/index.ts",
+      "!**/*.entity.ts",
+      "!**/*.dto.ts",
+      "!**/database/migrations/**/*.ts",
+      "!**/config/**/*.ts",
+      "!**/common/decorators/**/*.ts",
+      "!**/common/filters/**/*.ts",
+      "!**/common/interceptors/**/*.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

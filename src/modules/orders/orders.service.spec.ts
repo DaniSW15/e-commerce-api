@@ -21,6 +21,7 @@ describe('OrdersService', () => {
   let orderItemRepo: ReturnType<typeof mockRepository>;
   let productsService: jest.Mocked<any>;
   let cartService: jest.Mocked<any>;
+  let dataSource: jest.Mocked<any>;
 
   beforeEach(async () => {
     const mockProductsService = {
@@ -59,6 +60,7 @@ describe('OrdersService', () => {
     orderItemRepo = module.get(getRepositoryToken(OrderItem));
     productsService = module.get(ProductsService);
     cartService = module.get(CartService);
+    dataSource = module.get(DataSource);
   });
 
   it('should be defined', () => {
@@ -175,6 +177,70 @@ describe('OrdersService', () => {
       expect(productsService.updateStock).toHaveBeenCalledWith('p-id', -1);
       expect(cartService.clearCart).toHaveBeenCalledWith('user-id');
       expect(result).toEqual(mockOrder);
+    });
+  });
+
+  describe('findByUser', () => {
+    it('should find orders by user', async () => {
+      orderRepo.find.mockResolvedValueOnce([]);
+      const result = await service.findByUser('u-1');
+      expect(result).toEqual([]);
+      expect(orderRepo.find).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update status on valid transitions', async () => {
+      const mockOrder = { id: 'o-1', orderStatus: OrderStatus.PENDING };
+      orderRepo.findOne.mockResolvedValueOnce(mockOrder);
+      orderRepo.save.mockResolvedValueOnce({ ...mockOrder, orderStatus: OrderStatus.PAID });
+
+      const result = await service.updateStatus('o-1', OrderStatus.PAID);
+      expect(result.orderStatus).toBe(OrderStatus.PAID);
+    });
+
+    it('should throw BadRequestException on invalid transitions', async () => {
+      const mockOrder = { id: 'o-1', orderStatus: OrderStatus.PENDING };
+      orderRepo.findOne.mockResolvedValueOnce(mockOrder);
+
+      await expect(service.updateStatus('o-1', OrderStatus.DELIVERED)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('cancel', () => {
+    it('should throw BadRequestException if order does not belong to user', async () => {
+      const mockOrder = { id: 'o-1', userId: 'other-user' };
+      orderRepo.findOne.mockResolvedValueOnce(mockOrder);
+
+      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if order is not pending', async () => {
+      const mockOrder = { id: 'o-1', userId: 'u-1', orderStatus: OrderStatus.SHIPPED };
+      orderRepo.findOne.mockResolvedValueOnce(mockOrder);
+
+      await expect(service.cancel('o-1', 'u-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('should cancel order and restore stock', async () => {
+      const mockOrder = {
+        id: 'o-1',
+        userId: 'u-1',
+        orderStatus: OrderStatus.PENDING,
+        orderItems: [{ productId: 'p-1', quantity: 2 }],
+      };
+      orderRepo.findOne.mockResolvedValueOnce(mockOrder);
+
+      const mockTxManager = {
+        save: jest.fn().mockResolvedValue({}),
+      };
+      dataSource.transaction.mockImplementationOnce(async (cb) => {
+        return cb(mockTxManager);
+      });
+
+      const result = await service.cancel('o-1', 'u-1');
+      expect(result.orderStatus).toBe(OrderStatus.CANCELLED);
+      expect(productsService.updateStock).toHaveBeenCalledWith('p-1', 2);
     });
   });
 });

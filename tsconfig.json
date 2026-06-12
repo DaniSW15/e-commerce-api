@@ -30,5 +30,5 @@
     "types": ["node", "jest", "multer"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "test", "src/**/*.spec.ts"]
+  "exclude": ["node_modules", "dist", "test"]
 }
