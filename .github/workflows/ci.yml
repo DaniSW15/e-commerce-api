@@ -65,14 +65,14 @@ jobs:
         run: npm run test:e2e
         env:
           NODE_ENV: test
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_USER: test_user
-          DATABASE_PASSWORD: test_password
-          DATABASE_NAME: ecommerce_test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: test_user
+          DB_PASSWORD: test_password
+          DB_NAME: ecommerce_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          JWT_SECRET: test-secret-key-for-ci
+          JWT_ACCESS_SECRET: test-secret-key-for-ci
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci
 
       - name: Upload coverage reports
