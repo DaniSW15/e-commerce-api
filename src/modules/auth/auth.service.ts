@@ -46,7 +46,7 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   // ==================== REGISTRO ====================
   async register(registerDto: RegisterDto) {
@@ -587,9 +587,31 @@ export class AuthService {
   }
 
   private async sendPasswordResetEmail(email: string, token: string) {
-    // Implementar envío de email
-    console.log(`Password reset token for ${email}: ${token}`);
-    // Aquí integrar con SendGrid o SES
+    const resetLink = `http://localhost:4200/auth/reset-password?token=${token}`;
+    console.log(`Password reset link for ${email}: ${resetLink}`);
+
+    try {
+      await this.notificationsService.sendEmail({
+        to: email,
+        subject: 'Restablecer Contraseña',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #333; text-align: center;">Restablecer Contraseña</h2>
+            <p>Hola,</p>
+            <p>Has solicitado restablecer tu contraseña. Por favor, haz clic en el siguiente enlace para crear una nueva contraseña:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Restablecer Contraseña</a>
+            </div>
+            <p>Si no puedes hacer clic en el enlace, cópialo y pégalo en tu navegador:</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+            <p>Este enlace expira en 2 horas.</p>
+            <p>Si no solicitaste esto, puedes ignorar este correo y tu contraseña no cambiará.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      console.error('Failed to send password reset email:', err);
+    }
   }
 
   async revokeToken(refreshToken: string, userId: string) {

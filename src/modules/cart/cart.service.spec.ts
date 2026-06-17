@@ -255,7 +255,6 @@ describe('CartService', () => {
       const result = await service.clearCart('user-id');
       expect(result.message).toContain('cleared successfully');
       expect(cartItemRepo.delete).toHaveBeenCalledWith({ cartId: 'cart-id' });
-      expect(dataSource.manager.clear).toHaveBeenCalled();
     });
   });
 

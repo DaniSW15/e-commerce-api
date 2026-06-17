@@ -13,9 +13,17 @@ export class UserSubscriber implements EntitySubscriberInterface<User> {
     return User;
   }
 
+  private isAlreadyHashed(password: string): boolean {
+    return (
+      password.startsWith('$2a$') ||
+      password.startsWith('$2b$') ||
+      password.startsWith('$2y$')
+    );
+  }
+
   async beforeInsert(event: InsertEvent<User>) {
     console.log('🔐 UserSubscriber.beforeInsert - Hasheando contraseña...');
-    if (event.entity.password) {
+    if (event.entity.password && !this.isAlreadyHashed(event.entity.password)) {
       const salt = await bcrypt.genSalt(10);
       event.entity.password = await bcrypt.hash(event.entity.password, salt);
       console.log(
@@ -31,6 +39,7 @@ export class UserSubscriber implements EntitySubscriberInterface<User> {
     if (
       entity &&
       entity.password &&
+      !this.isAlreadyHashed(entity.password) &&
       entity.password !== event.databaseEntity?.password
     ) {
       const salt = await bcrypt.genSalt(10);

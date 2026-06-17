@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Between, MoreThan, IsNull } from 'typeorm';
+import { Repository, Like, Between, MoreThan, IsNull, EntityManager } from 'typeorm';
 import { Product, ProductStatus } from './entities/product.entity';
 import { Category } from './entities/category.entity';
 import { ProductImage } from './entities/product-image.entity';
@@ -308,14 +308,29 @@ export class ProductsService {
   //   await this.productRepository.softDelete(id);
   // }
 
-  async updateStock(id: string, quantity: number): Promise<Product> {
-    const product = await this.findById(id);
+  async updateStock(
+    id: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<Product> {
+    const repo = manager
+      ? manager.getRepository(Product)
+      : this.productRepository;
+
+    const product = await repo.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: { category: true, images: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
 
     if (product.stockQuantity + quantity < 0) {
       throw new BadRequestException('Insufficient stock');
     }
 
     product.stockQuantity += quantity;
-    return this.productRepository.save(product);
+    return repo.save(product);
   }
 }

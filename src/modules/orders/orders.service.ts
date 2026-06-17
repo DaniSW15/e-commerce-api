@@ -78,11 +78,15 @@ export class OrdersService {
 
       // Decrease stock quantity
       for (const item of cart.items) {
-        await this.productsService.updateStock(item.productId, -item.quantity);
+        await this.productsService.updateStock(
+          item.productId,
+          -item.quantity,
+          manager,
+        );
       }
 
       // Empty the cart
-      await this.cartService.clearCart(userId);
+      await this.cartService.clearCart(userId, manager);
 
       return savedOrder;
     });
@@ -136,7 +140,11 @@ export class OrdersService {
 
       // Restore stock quantity
       for (const item of order.orderItems) {
-        await this.productsService.updateStock(item.productId, item.quantity);
+        await this.productsService.updateStock(
+          item.productId,
+          item.quantity,
+          manager,
+        );
       }
     });
 

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { AddToCartDto } from './dto/add-to-cart.dto';
@@ -150,8 +150,18 @@ export class CartService {
     return this.recalculateCart(cart.id);
   }
 
-  async clearCart(userId: string): Promise<{ message: string }> {
-    const cart = await this.cartRepository.findOne({
+  async clearCart(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<{ message: string }> {
+    const cartRepo = manager
+      ? manager.getRepository(Cart)
+      : this.cartRepository;
+    const cartItemRepo = manager
+      ? manager.getRepository(CartItem)
+      : this.cartItemRepository;
+
+    const cart = await cartRepo.findOne({
       where: { userId },
       relations: {
         items: true,
@@ -164,7 +174,7 @@ export class CartService {
 
     // Eliminar todos los items usando delete en lugar de remove
     if (cart.items && cart.items.length > 0) {
-      await this.cartItemRepository.delete({ cartId: cart.id });
+      await cartItemRepo.delete({ cartId: cart.id });
     }
 
     // Actualizar totales del carrito
@@ -172,10 +182,7 @@ export class CartService {
     cart.tax = 0;
     cart.total = 0;
     cart.itemCount = 0;
-    await this.cartRepository.save(cart);
-
-    // Limpiar el EntityManager para forzar reload en próximas queries
-    this.dataSource.manager.clear(CartItem);
+    await cartRepo.save(cart);
 
     return { message: 'Cart cleared successfully' };
   }

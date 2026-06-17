@@ -10,14 +10,20 @@ Todos los endpoints tienen la URL base `http://localhost:3000/api/auth/` (o la U
 
 ### A. Registro de Usuario (`POST /auth/register`)
 Crea una nueva cuenta de usuario. Por defecto, las cuentas se crean inactivas hasta verificar el correo.
-*   **Cuerpo (Request Body):**
+*   **Cuerpo (Request Body) completo:**
     ```json
     {
       "email": "usuario@ejemplo.com",
       "password": "PasswordSegura123",
-      "role": "customer", // Opcional (customer, seller, admin, super_admin)
       "firstName": "Juan", // Opcional
-      "lastName": "Pérez" // Opcional
+      "lastName": "Pérez", // Opcional
+      "role": "customer", // Opcional (customer, seller, admin, super_admin, developer, support)
+      "workEmail": "developer@company.com", // Opcional
+      "metadata": { // Opcional
+        "department": "engineering",
+        "position": "senior",
+        "team": "backend"
+      }
     }
     ```
 *   **Respuesta (Response 201):**
@@ -30,7 +36,13 @@ Crea una nueva cuenta de usuario. Por defecto, las cuentas se crean inactivas ha
       "user": {
         "id": "uuid",
         "email": "usuario@ejemplo.com",
-        "role": "customer"
+        "role": "customer",
+        "workEmail": "developer@company.com",
+        "metadata": {
+          "department": "engineering",
+          "position": "senior",
+          "team": "backend"
+        }
       }
     }
     ```
@@ -134,6 +146,82 @@ Invalida el refresh token activo en el backend.
     }
     ```
 
+### G. Solicitar Recuperación de Contraseña (`POST /auth/forgot-password`)
+Envía un correo con un enlace de restablecimiento de contraseña.
+*   **Cuerpo (Request Body):**
+    ```json
+    {
+      "email": "usuario@ejemplo.com"
+    }
+    ```
+*   **Respuesta (200):**
+    ```json
+    {
+      "success": true,
+      "message": "Password reset email sent"
+    }
+    ```
+
+### H. Restablecer Contraseña (`POST /auth/reset-password`)
+Establece una nueva contraseña utilizando el token recibido por correo.
+*   **Cuerpo (Request Body):**
+    ```json
+    {
+      "token": "TOKEN_RECIBIDO_EN_EL_ENLACE",
+      "newPassword": "NuevaPasswordSegura123"
+    }
+    ```
+*   **Respuesta (200):**
+    ```json
+    {
+      "success": true,
+      "message": "Password has been reset successfully"
+    }
+    ```
+
+### I. Generar Secreto 2FA (`POST /auth/2fa/generate`)
+Genera la clave secreta y la URL del código QR en base64 para que el usuario la escanee.
+*   **Cabeceras:** `Authorization: Bearer <access_token>`
+*   **Respuesta (201):**
+    ```json
+    {
+      "qrCodeUrl": "data:image/png;base64,iVBORw0KGgo..."
+    }
+    ```
+
+### J. Activar 2FA (`POST /auth/2fa/enable`)
+Valida el código del autenticador y activa el 2FA en el perfil de forma permanente.
+*   **Cabeceras:** `Authorization: Bearer <access_token>`
+*   **Cuerpo (Request Body):**
+    ```json
+    {
+      "code": "123456"
+    }
+    ```
+*   **Respuesta (201):**
+    ```json
+    {
+      "message": "2FA enabled successfully"
+    }
+    ```
+
+### K. Desactivar 2FA (`POST /auth/2fa/disable`)
+Desactiva el doble factor de autenticación solicitando el código de confirmación.
+*   **Cabeceras:** `Authorization: Bearer <access_token>`
+*   **Cuerpo (Request Body):**
+    ```json
+    {
+      "code": "123456"
+    }
+    ```
+*   **Respuesta (201):**
+    ```json
+    {
+      "success": true,
+      "message": "Two-factor authentication disabled"
+    }
+    ```
+
 ---
 
 ## 2. Estructura Sugerida para el Frontend (Angular)
@@ -193,5 +281,14 @@ Para entrenarte en este flujo en tu aplicación Angular, te sugerimos seguir est
     Configura el interceptor en tu `app.config.ts` (`provideHttpClient(withInterceptors([authInterceptor]))`). Verifica en la consola de red (Network) del navegador que las llamadas a rutas protegidas ahora llevan la cabecera `Authorization`.
 5.  **Añade la lógica de refresco silencioso:**
     Simula la expiración del Access Token (por ejemplo, borrando a mano el token del `localStorage` antes de hacer una petición protegida o reduciendo su expiración) y verifica si tu interceptor es capaz de obtener automáticamente uno nuevo llamando al endpoint `/refresh` sin que la pantalla se recargue ni se pierda la sesión del usuario.
-6.  **Desafío Extra - Manejo de 2FA:**
-    Habilita el 2FA en el backend para un usuario y programa la UI para que, si el login indica `requiresTwoFactor`, se muestre un campo de texto adicional para ingresar el código OTP de 6 dígitos antes de completar la autenticación.
+6.  **Manejo de 2FA en el Login (Paso 2):**
+    Habilita el 2FA en el backend para un usuario y programa la UI para que, si la API del login indica `requiresTwoFactor: true`, se muestre un campo de texto adicional (u ocultes el formulario de login y muestres uno específico) para ingresar el código de 6 dígitos. Llama a `/auth/login/2fa` enviando el `tempToken` recibido para completar el inicio de sesión.
+7.  **Flujo de Recuperación de Contraseña:**
+    *   Diseña la vista de `/auth/forgot-password` (Olvidé mi contraseña) para que pida el email. Consume el endpoint `POST /auth/forgot-password`.
+    *   Verifica que te llegue el correo con el enlace en tu bandeja de Mailtrap. El enlace te dirigirá a `/auth/reset-password?token=...`.
+    *   Crea la vista de `/auth/reset-password` para extraer el `token` desde la ruta (usando `ActivatedRoute`) y solicitar la nueva contraseña. Llama a `POST /auth/reset-password` con estos datos y, tras un aviso exitoso, redirige al usuario a la página de login.
+8.  **Desafío Extra - Activar/Desactivar 2FA desde la Cuenta de Usuario:**
+    Crea una sección en la zona privada del usuario donde permitas gestionar su seguridad:
+    *   **Generar código QR:** Llama a `POST /auth/2fa/generate` para obtener el código QR en base64 y muéstralo en pantalla.
+    *   **Confirmar Activación:** Solicita que el usuario introduzca el código OTP de 6 dígitos que lee en su app (como Google Authenticator) y llámalo a `POST /auth/2fa/enable` para activar el doble factor de forma permanente en su registro.
+    *   **Desactivar:** Agrega un botón para apagar el doble factor llamando a `POST /auth/2fa/disable` confirmando con el código OTP actual.

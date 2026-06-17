@@ -73,7 +73,7 @@ jobs:
           JWT_ACCESS_SECRET: test-secret-key-for-ci
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci
 
-      - name: Build application
+      - name: Build application∏∏
         run: npm run build
 
       - name: Login to Docker Hub
@@ -131,22 +131,22 @@ jobs:
           port: ${{ secrets.PRODUCTION_PORT }}
           script: |
             cd /var/www/ecommerce-api
-            
+
             # Pull latest images
             docker-compose -f docker-compose.prod.yml pull
-            
+
             # Blue-Green deployment: Start new containers
             docker-compose -f docker-compose.prod.yml up -d --no-deps --scale api=2 --no-recreate api
-            
+
             # Wait for new containers to be healthy
             sleep 15
-            
+
             # Run migrations
             docker-compose -f docker-compose.prod.yml exec -T api npm run migration:run
-            
+
             # Remove old containers
             docker-compose -f docker-compose.prod.yml up -d --scale api=1 --remove-orphans
-            
+
             # Cleanup old images
             docker image prune -f
 
@@ -154,18 +154,18 @@ jobs:
         run: |
           echo "Waiting for deployment to stabilize..."
           sleep 20
-          
+
           # Health check
           HEALTH=$(curl -f -s https://api.yourdomain.com/health)
           echo "Health check response: $HEALTH"
-          
+
           if echo "$HEALTH" | grep -q '"status":"ok"'; then
             echo "✅ Health check passed"
           else
             echo "❌ Health check failed"
             exit 1
           fi
-          
+
           # Basic API test
           curl -f https://api.yourdomain.com/api/v1/products || exit 1
           echo "✅ Smoke tests passed"
@@ -181,22 +181,22 @@ jobs:
           script: |
             echo "⚠️ Deployment failed, rolling back..."
             cd /var/www/ecommerce-api
-            
+
             # Find and restore previous image
             PREVIOUS_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep ecommerce-api:v | head -2 | tail -1)
             echo "Rolling back to: $PREVIOUS_IMAGE"
-            
+
             # Restore from backup if needed
             LATEST_BACKUP=$(ls -t backups/db-backup-*.sql | head -1)
             if [ -n "$LATEST_BACKUP" ]; then
               echo "Restoring database from: $LATEST_BACKUP"
               docker-compose exec -T postgres psql -U $POSTGRES_USER $POSTGRES_DB < "$LATEST_BACKUP"
             fi
-            
+
             # Restart with previous version
             docker-compose -f docker-compose.prod.yml down
             docker-compose -f docker-compose.prod.yml up -d
-            
+
             echo "✅ Rollback completed"
 
       - name: Create GitHub Release
@@ -207,13 +207,13 @@ jobs:
           name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## Changes in this Release
-            
+
             **Deployed to Production**: ${{ github.sha }}
             **Deployment Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
-            
+
             ### What's Changed
             - See commit history for details
-            
+
             ### Deployment Info
             - Docker Image: `${{ secrets.DOCKER_USERNAME }}/ecommerce-api:${{ steps.version.outputs.VERSION }}`
             - Environment: Production

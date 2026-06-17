@@ -174,8 +174,15 @@ describe('OrdersService', () => {
       const result = await service.create('user-id', dto);
 
       expect(cartService.getCart).toHaveBeenCalledWith('user-id');
-      expect(productsService.updateStock).toHaveBeenCalledWith('p-id', -1);
-      expect(cartService.clearCart).toHaveBeenCalledWith('user-id');
+      expect(productsService.updateStock).toHaveBeenCalledWith(
+        'p-id',
+        -1,
+        expect.any(Object),
+      );
+      expect(cartService.clearCart).toHaveBeenCalledWith(
+        'user-id',
+        expect.any(Object),
+      );
       expect(result).toEqual(mockOrder);
     });
   });
@@ -253,7 +260,11 @@ describe('OrdersService', () => {
 
       const result = await service.cancel('o-1', 'u-1');
       expect(result.orderStatus).toBe(OrderStatus.CANCELLED);
-      expect(productsService.updateStock).toHaveBeenCalledWith('p-1', 2);
+      expect(productsService.updateStock).toHaveBeenCalledWith(
+        'p-1',
+        2,
+        expect.any(Object),
+      );
     });
   });
 });
