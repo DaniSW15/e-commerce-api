@@ -4,6 +4,7 @@ import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NotFoundException } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UserRole } from '@/common/enums';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -74,7 +75,7 @@ describe('OrdersController', () => {
       const order = { id: 'o-1', userId: 'u-1' };
       service.findById.mockResolvedValueOnce(order);
 
-      const result = await controller.findById('u-1', 'o-1');
+      const result = await controller.findById('u-1', UserRole.CUSTOMER, 'o-1');
       expect(result).toEqual(order);
       expect(service.findById).toHaveBeenCalledWith('o-1');
     });
@@ -83,7 +84,7 @@ describe('OrdersController', () => {
       const order = { id: 'o-1', userId: 'other-user' };
       service.findById.mockResolvedValueOnce(order);
 
-      await expect(controller.findById('u-1', 'o-1')).rejects.toThrow(
+      await expect(controller.findById('u-1', UserRole.CUSTOMER, 'o-1')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -96,9 +97,9 @@ describe('OrdersController', () => {
         orderStatus: 'cancelled',
       });
 
-      const result = await controller.cancel('u-1', 'o-1');
+      const result = await controller.cancel('u-1', UserRole.CUSTOMER, 'o-1');
       expect(result).toEqual({ id: 'o-1', orderStatus: 'cancelled' });
-      expect(service.cancel).toHaveBeenCalledWith('o-1', 'u-1');
+      expect(service.cancel).toHaveBeenCalledWith('o-1', 'u-1', false);
     });
   });
 });

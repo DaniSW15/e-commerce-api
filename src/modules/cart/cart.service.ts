@@ -177,7 +177,8 @@ export class CartService {
       await cartItemRepo.delete({ cartId: cart.id });
     }
 
-    // Actualizar totales del carrito
+    // Actualizar totales del carrito y vaciar items en memoria para evitar que cascade: true los vuelva a guardar
+    cart.items = [];
     cart.subtotal = 0;
     cart.tax = 0;
     cart.total = 0;

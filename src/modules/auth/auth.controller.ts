@@ -50,7 +50,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 300000 } }) // 5 intentos en 5 min (300000 ms)
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 100 intentos en 1 min (60000 ms) para pruebas
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })

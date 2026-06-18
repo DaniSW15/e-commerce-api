@@ -7,7 +7,7 @@
 > API REST enterprise para e-commerce construida con NestJS, PostgreSQL, Redis, Stripe y AWS S3.
 > Implementa autenticación JWT, RBAC, pagos, gestión de inventario y procesamiento de imágenes.
 
-**Estado del Proyecto:** ✅ MVP Completado | 🧪 Tests: 30/30 pasando | 📦 Producción: Listo para deploy
+**Estado del Proyecto:** ✅ MVP + Fase 2 Completado | 🧪 Tests: 30/30 pasando | 📦 Producción: Listo para deploy | 🔢 60 endpoints activos
 
 ---
 
@@ -78,6 +78,7 @@
 │  │ • RBAC ✅   │  │ • GDPR ✅   │  │ • Inventory ✅      │   │
 │  │ • 2FA ✅    │  │ • SoftDel ✅│  │ • Stock ✅          │   │
 │  │ • Reset ✅  │  │ • Restore ✅│  │ • Search ✅         │   │
+│  │ • Verify ✅ │  │ • Roles ✅  │  │ • Reviews ✅        │   │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘   │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │
 │  │ Orders ✅   │  │ Payments ✅ │  │    Media ✅         │   │
@@ -86,7 +87,16 @@
 │  │ • Checkout✅│  │ • Stripe ✅ │  │ • S3/Local ✅       │   │
 │  │ • History ✅│  │ • Webhook ✅│  │ • Sharp ✅          │   │
 │  │ • Cancel ✅ │  │ • Refund ✅ │  │ • WebP ✅           │   │
-│  │ • Cart ✅   │  │ • Intent ✅ │  │ • SignURL ✅        │   │
+│  │ • Admin  ✅ │  │ • Intent ✅ │  │ • SignURL ✅        │   │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │
+│  │ Cart ✅     │  │ Wishlist ✅ │  │   Reviews ✅        │   │
+│  │  Module     │  │  Module     │  │   Module            │   │
+│  │             │  │             │  │                     │   │
+│  │ • Add ✅    │  │ • List ✅   │  │ • Create ✅         │   │
+│  │ • Remove ✅ │  │ • Add ✅    │  │ • List ✅           │   │
+│  │ • Update ✅ │  │ • Remove ✅ │  │ • Delete ✅         │   │
+│  │ • Clear ✅  │  │             │  │ • Ratings ✅        │   │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘   │
 │  ┌─────────────┐  ┌─────────────┐                            │
 │  │ Notific. ✅ │  │  Health ✅  │                            │
@@ -120,11 +130,12 @@
 
 **Auth Module** ✅
 - JWT Access + Refresh Tokens
-- 2FA/TOTP (generate, enable, verify)
-- Password Reset Flow
+- 2FA/TOTP (generate, enable, verify, disable)
+- Password Reset Flow (forgot + reset)
+- Email Verification (verify + resend)
 - RBAC + Permissions Guards
-- Token Rotation & Revocation
-- 15 endpoints activos
+- Token Rotation, Revocation & Listing
+- 16 endpoints activos
 
 </td>
 <td valign="top" width="33%">
@@ -133,9 +144,10 @@
 - User Profiles + Addresses
 - GDPR Compliance (soft delete)
 - Account Restore (30 días)
-- Login Attempt Tracking
+- Admin: Listar usuarios (filtros)
+- Admin: Cambiar status y rol
 - Auto Password Hashing
-- 8 endpoints activos
+- 10 endpoints activos
 
 </td>
 <td valign="top" width="33%">
@@ -147,7 +159,7 @@
 - Stock Management
 - Filtros Avanzados
 - Búsqueda Full-text
-- 9 endpoints activos
+- 8 endpoints activos
 
 </td>
 </tr>
@@ -158,9 +170,9 @@
 - Checkout Directo
 - Order History
 - Cancel Orders
-- Order Tracking
-- ✅ Cart integrado
-- 4 endpoints activos
+- Admin: Listar todas las órdenes
+- Admin: Actualizar status
+- 6 endpoints activos
 
 </td>
 <td valign="top">
@@ -171,7 +183,7 @@
 - Refund Processing
 - Payment Tracking
 - PCI Compliance
-- 4 endpoints (+ webhook)
+- 3 endpoints (+ webhook)
 
 </td>
 <td valign="top">
@@ -195,6 +207,27 @@
 - WebP Optimization
 - Metadata Stripping
 - Signed URLs ✅
+- 3 endpoints activos
+
+</td>
+<td valign="top">
+
+**Reviews Module** ✅
+- Crear review (requiere compra)
+- Listar reviews por producto
+- Eliminar review (autor/admin)
+- Rating por estrellas
+- Paginación
+- 3 endpoints activos
+
+</td>
+<td valign="top">
+
+**Wishlist Module** ✅
+- Lista de deseos por usuario
+- Agregar productos
+- Eliminar productos
+- Creación automática
 - 3 endpoints activos
 
 </td>
@@ -561,10 +594,12 @@ await userRepo.find({ withDeleted: true }); // Incluye eliminados
 ```typescript
 // Roles predefinidos
 enum UserRole {
-  CUSTOMER = 'customer',    // Comprador estándar
-  SELLER = 'seller',        // Vendedor (marketplace)
-  ADMIN = 'admin',          // Administrador
-  SUPER_ADMIN = 'super_admin', // Acceso total
+  CUSTOMER = 'customer',       // Comprador estándar
+  SELLER = 'seller',           // Vendedor (marketplace)
+  ADMIN = 'admin',             // Administrador con permisos amplios
+  SUPER_ADMIN = 'super_admin', // Administrador con acceso total
+  DEVELOPER = 'developer',    // Desarrollador con acceso técnico
+  SUPPORT = 'support',         // Soporte técnico con permisos limitados
 }
 
 // Permisos granulares (ABAC)
@@ -588,84 +623,95 @@ enum Permission {
 
 ## 🧩 Módulos del Sistema
 
-### Auth Module
+### Auth Module (16 endpoints)
 
 ```typescript
-// Endpoints implementados
-POST   /api/v1/auth/register          # Registro con email
-POST   /api/v1/auth/login             # Login (rate limited: 5 intentos/5min)
-POST   /api/v1/auth/login/2fa         # Completar login con código 2FA
-POST   /api/v1/auth/refresh           # Rotación de refresh token
-POST   /api/v1/auth/logout            # Revocar token actual
-POST   /api/v1/auth/logout-all        # Revocar TODOS los tokens del usuario
-GET    /api/v1/auth/me                # Perfil actual (JWT)
+// Endpoints públicos
+POST   /api/v1/auth/register              # Registro con email
+POST   /api/v1/auth/login                 # Login (rate limited: 5 intentos/5min)
+POST   /api/v1/auth/login/2fa             # Completar login con código 2FA
+POST   /api/v1/auth/verify-email          # Verificar email con token
+POST   /api/v1/auth/resend-verification   # Reenviar email de verificación
+POST   /api/v1/auth/refresh               # Rotación de refresh token
+POST   /api/v1/auth/forgot-password       # Solicitar reset de contraseña (rate limited: 3/hora)
+POST   /api/v1/auth/reset-password        # Confirmar reset con token
 
-// Pendientes de implementar
-POST   /api/v1/auth/2fa/enable        # Activar 2FA (QR code)
-POST   /api/v1/auth/2fa/verify        # Verificar código TOTP
-POST   /api/v1/auth/2fa/disable       # Desactivar 2FA
-POST   /api/v1/auth/forgot-password   # Solicitar reset
-POST   /api/v1/auth/reset-password    # Confirmar reset con token
+// Endpoints protegidos (JWT)
+GET    /api/v1/auth/me                    # Perfil actual del usuario autenticado
+POST   /api/v1/auth/logout                # Revocar token actual
+POST   /api/v1/auth/logout-all            # Revocar TODOS los tokens del usuario
+POST   /api/v1/auth/revoke                # Revocar un refresh token específico
+GET    /api/v1/auth/tokens                # Listar tokens activos del usuario
+POST   /api/v1/auth/2fa/generate          # Generar secreto 2FA (QR code)
+POST   /api/v1/auth/2fa/enable            # Activar 2FA con código TOTP
+POST   /api/v1/auth/2fa/verify            # Verificar código TOTP
+POST   /api/v1/auth/2fa/disable           # Desactivar 2FA
 ```
 
-### Users Module
+### Users Module (10 endpoints)
 
 ```typescript
-// Endpoints implementados
-GET    /api/v1/users/profile          # Obtener perfil actual
-PATCH  /api/v1/users/profile          # Actualizar perfil
-GET    /api/v1/users/addresses        # Listar direcciones del usuario
-POST   /api/v1/users/addresses        # Crear dirección
-PATCH  /api/v1/users/addresses/:id    # Actualizar dirección
-DELETE /api/v1/users/addresses/:id    # Eliminar dirección
-DELETE /api/v1/users/account          # Solicitar eliminación (GDPR)
-POST   /api/v1/users/account/restore  # Restaurar cuenta (30 días)
+// Perfil de usuario (JWT requerido)
+GET    /api/v1/users/profile              # Obtener perfil actual
+PATCH  /api/v1/users/profile              # Actualizar perfil
 
-// Admin endpoints (pendientes)
-GET    /api/v1/users                  # Listar usuarios (paginado)
-GET    /api/v1/users/:id              # Detalle usuario
-PATCH  /api/v1/users/:id/status       # Suspender/activar
+// Direcciones (JWT requerido)
+GET    /api/v1/users/addresses            # Listar direcciones del usuario
+POST   /api/v1/users/addresses            # Crear dirección
+PATCH  /api/v1/users/addresses/:id        # Actualizar dirección
+DELETE /api/v1/users/addresses/:id        # Eliminar dirección
+
+// Gestión de cuenta (JWT requerido)
+DELETE /api/v1/users/account              # Solicitar eliminación (GDPR soft delete)
+POST   /api/v1/users/account/restore      # Restaurar cuenta (dentro de 30 días)
+
+// Admin endpoints (Rol: admin)
+GET    /api/v1/users                      # Listar usuarios (filtros, paginación)
+PATCH  /api/v1/users/:id/status           # Cambiar status de usuario
+PATCH  /api/v1/users/:id/role             # Cambiar rol de usuario
 ```
 
-### Products Module
+### Products Module (8 endpoints)
 
 ```typescript
-// Endpoints públicos implementados
-GET    /api/v1/products               # Listar (filtros, paginación)
-GET    /api/v1/products/:slug         # Detalle por slug
-GET    /api/v1/products/categories/tree # Árbol de categorías
-GET    /api/v1/products/search        # Búsqueda full-text (name, description, SKU)
+// Endpoints públicos (sin autenticación)
+GET    /api/v1/products                   # Listar productos (filtros, paginación)
+GET    /api/v1/products/search            # Búsqueda full-text (name, description, SKU)
+GET    /api/v1/products/:slug             # Detalle por slug
+GET    /api/v1/products/categories/tree   # Árbol de categorías
 
-// Admin / Seller (implementados)
-POST   /api/v1/products               # Crear producto
-POST   /api/v1/products/categories    # Crear categoría
-PATCH  /api/v1/products/:id           # Actualizar
-DELETE /api/v1/products/:id           # Soft delete
-
-// Pendientes de implementar
-POST   /api/v1/products/:id/images    # Subir imágenes
-DELETE /api/v1/products/:id/images/:imageId
+// Admin / Seller (Roles: admin, seller, developer)
+POST   /api/v1/products                   # Crear producto
+POST   /api/v1/products/categories        # Crear categoría (solo admin)
+PATCH  /api/v1/products/:id               # Actualizar producto (admin, seller)
+DELETE /api/v1/products/:id               # Soft delete (solo admin)
+POST   /api/v1/products/:id/stock         # Actualizar stock (admin, seller)
 ```
 
-### Orders Module
+### Orders Module (6 endpoints)
 
 ```typescript
-// Endpoints implementados
-POST   /api/v1/orders                  # Crear orden (checkout)
-GET    /api/v1/orders                  # Mis órdenes
-GET    /api/v1/orders/:id              # Detalle orden
-PATCH  /api/v1/orders/:id/cancel       # Cancelar orden (si pending)
+// Endpoints de usuario (JWT requerido)
+POST   /api/v1/orders                     # Crear orden (checkout)
+GET    /api/v1/orders                     # Mis órdenes
+GET    /api/v1/orders/:id                 # Detalle de orden
+PATCH  /api/v1/orders/:id/cancel          # Cancelar orden (si pending)
+
+// Admin / Seller (Roles: admin, super_admin, developer, seller)
+GET    /api/v1/orders/admin               # Listar TODAS las órdenes del sistema
+PATCH  /api/v1/orders/:id/status          # Actualizar status de orden
+// Status válidos: pending | paid | processing | shipped | delivered | cancelled | refunded
 ```
 
-### Cart Module
+### Cart Module (5 endpoints)
 
 ```typescript
-// Endpoints implementados
-GET    /api/v1/cart                    # Obtener carrito actual
-POST   /api/v1/cart/items              # Agregar producto al carrito
-PATCH  /api/v1/cart/items/:id          # Actualizar cantidad de item
-DELETE /api/v1/cart/items/:id          # Quitar item del carrito
-DELETE /api/v1/cart                    # Vaciar carrito completo
+// Todos los endpoints requieren JWT
+GET    /api/v1/cart                       # Obtener carrito actual
+POST   /api/v1/cart/items                 # Agregar producto al carrito
+PATCH  /api/v1/cart/items/:id             # Actualizar cantidad de item
+DELETE /api/v1/cart/items/:id             # Quitar item del carrito
+DELETE /api/v1/cart                       # Vaciar carrito completo
 
 // Features implementadas:
 // - Creación automática de carrito por usuario
@@ -676,25 +722,55 @@ DELETE /api/v1/cart                    # Vaciar carrito completo
 // - Soft delete de carritos al hacer checkout
 ```
 
-### Payments Module
+### Payments Module (3 endpoints + webhook)
 
 ```typescript
-// Endpoints implementados
-POST   /api/v1/payments/intent         # Crear payment intent (Stripe)
-GET    /api/v1/payments/order/:orderId # Obtener payment intent de orden
-POST   /api/v1/payments/:id/refund     # Reembolsar pago
+// Endpoints protegidos (JWT requerido)
+POST   /api/v1/payments/intent            # Crear payment intent (Stripe)
+GET    /api/v1/payments/order/:orderId    # Obtener payment intent de orden
+POST   /api/v1/payments/:id/refund        # Reembolsar pago
 
-// Webhooks
-POST   /api/v1/webhooks/stripe         # Escuchar eventos de Stripe
+// Webhook (endpoint externo de Stripe)
+POST   /api/v1/webhooks/stripe            # Escuchar eventos de Stripe
 ```
 
-### Media Module
+### Reviews Module (3 endpoints)
 
 ```typescript
-// Endpoints implementados
-POST   /api/v1/media/upload            # Subir archivo (multipart/form-data)
-DELETE /api/v1/media/:id               # Eliminar archivo
-GET    /api/v1/media/:key/signed-url  # URL firmada temporal (S3 pre-signed)
+// Endpoint público
+GET    /api/v1/products/:id/reviews       # Listar reviews por producto (paginado)
+
+// Endpoints protegidos (JWT requerido)
+POST   /api/v1/products/:id/reviews       # Crear review (requiere compra previa)
+DELETE /api/v1/products/reviews/:id       # Eliminar review (autor o admin)
+
+// Features implementadas:
+// - Validación de compra previa al producto
+// - Una review por usuario por producto
+// - Paginación configurable (page, limit)
+// - Eliminación por autor del review o admin
+```
+
+### Wishlist Module (3 endpoints)
+
+```typescript
+// Todos los endpoints requieren JWT
+GET    /api/v1/wishlist                   # Obtener wishlist del usuario
+POST   /api/v1/wishlist/products/:productId  # Agregar producto a wishlist
+DELETE /api/v1/wishlist/products/:productId  # Eliminar producto de wishlist
+
+// Features implementadas:
+// - Creación automática de wishlist por usuario
+// - Validación de existencia de producto
+```
+
+### Media Module (3 endpoints)
+
+```typescript
+// Todos requieren JWT + Rol: admin o seller
+POST   /api/v1/media/upload              # Subir imágenes (multipart/form-data, máx 5)
+DELETE /api/v1/media/:id                 # Eliminar imagen
+GET    /api/v1/media/:key/signed-url     # URL firmada temporal (S3 pre-signed)
 
 // Procesamiento automático (implementado):
 // - Resize: 1200x1200 max
@@ -704,28 +780,28 @@ GET    /api/v1/media/:key/signed-url  # URL firmada temporal (S3 pre-signed)
 // - Pre-signed URLs con expiración configurable (default 1 hora)
 ```
 
-### Notifications Module
+### Notifications Module (2 endpoints)
 
 ```typescript
-// Endpoints implementados
-POST   /api/v1/notifications/email     # Enviar email
-GET    /api/v1/notifications/:id/status # Estado de notificación
+// Requieren JWT + Rol: admin
+POST   /api/v1/notifications/email       # Enviar email (procesado en cola)
+GET    /api/v1/notifications/:id/status  # Estado de notificación
 
 // Features implementadas:
 // - Queue con BullMQ para procesamiento asíncrono
 // - Integración con SendGrid/AWS SES
 ```
 
-### Health Check
+### Health Check (1 endpoint)
 
 ```typescript
-// Endpoint público
-GET    /api/v1/health                  # Health check (DB, Redis opcional)
+// Endpoint público (sin autenticación)
+GET    /api/v1/health                    # Health check completo
 
 // Checks implementados:
-// - Database (PostgreSQL)
-// - Memory heap/RSS (configurable)
-// - Redis (solo en producción)
+// - Database (PostgreSQL ping)
+// - Memory heap/RSS (umbrales configurables)
+// - Redis (solo en producción, no en test)
 ```
 
 ---
@@ -1204,7 +1280,17 @@ POST /api/v1/auth/register
   "lastName": "Doe"
 }
 
-// 2. Login y obtener tokens
+// 2. Verificar email (obligatorio antes del primer login)
+POST /api/v1/auth/verify-email
+{
+  "email": "user@example.com",
+  "token": "abc123..."  // Token recibido por email
+}
+// Si no llegó el email:
+POST /api/v1/auth/resend-verification
+{ "email": "user@example.com" }
+
+// 3. Login y obtener tokens
 POST /api/v1/auth/login
 {
   "email": "user@example.com",
@@ -1217,18 +1303,28 @@ POST /api/v1/auth/login
   "expires_in": 900 // 15 minutos
 }
 
-// 3. Usar token en requests
+// 4. Usar token en requests
 GET /api/v1/auth/me
 Headers: { "Authorization": "Bearer eyJhbGciOiJIUzI1NiIs..." }
 
-// 4. Renovar token (cuando expire access_token)
+// 5. Renovar token (cuando expire access_token)
 POST /api/v1/auth/refresh
-Headers: { "Authorization": "Bearer <refresh_token>" }
+{ "refreshToken": "<refresh_token>", "deviceInfo": "Chrome/Windows" }
 
-// 5. Habilitar 2FA (opcional)
+// 6. Habilitar 2FA (opcional)
 POST /api/v1/auth/2fa/generate    // Obtener QR code
 POST /api/v1/auth/2fa/enable      // Confirmar con código TOTP
 POST /api/v1/auth/login/2fa       // Login con 2FA habilitado
+
+// 7. Gestión de tokens
+GET  /api/v1/auth/tokens           // Ver sesiones activas
+POST /api/v1/auth/revoke           // Revocar un token específico
+POST /api/v1/auth/logout           // Cerrar sesión actual
+POST /api/v1/auth/logout-all       // Cerrar TODAS las sesiones
+
+// 8. Reset de contraseña
+POST /api/v1/auth/forgot-password  // { "email": "user@example.com" }
+POST /api/v1/auth/reset-password   // { "token": "...", "newPassword": "NewPass123!" }
 ```
 
 ### Gestión de Productos (Products Module)
@@ -1307,6 +1403,55 @@ GET /api/v1/orders?status=pending&page=1&limit=10
 
 // Cancelar orden (solo si status=pending)
 PATCH /api/v1/orders/:orderId/cancel
+
+// ==================== ADMIN / SELLER ====================
+
+// Ver TODAS las órdenes del sistema (requiere rol admin/seller)
+GET /api/v1/orders/admin
+Headers: { "Authorization": "Bearer <admin_token>" }
+
+// Actualizar status de una orden
+PATCH /api/v1/orders/:orderId/status
+Headers: { "Authorization": "Bearer <admin_token>" }
+{
+  "status": "shipped"
+  // Valores válidos: pending | paid | processing | shipped | delivered | cancelled | refunded
+}
+```
+
+### Reviews de Productos (Reviews Module)
+
+```typescript
+// Listar reviews de un producto (público)
+GET /api/v1/products/:productId/reviews?page=1&limit=10
+
+// Crear review (requiere JWT + haber comprado el producto)
+POST /api/v1/products/:productId/reviews
+Headers: { "Authorization": "Bearer <user_token>" }
+{
+  "rating": 5,
+  "comment": "Excelente producto, superó mis expectativas"
+}
+
+// Eliminar review (solo el autor o un admin)
+DELETE /api/v1/products/reviews/:reviewId
+Headers: { "Authorization": "Bearer <user_token>" }
+```
+
+### Lista de Deseos (Wishlist Module)
+
+```typescript
+// Obtener mi wishlist
+GET /api/v1/wishlist
+Headers: { "Authorization": "Bearer <user_token>" }
+
+// Agregar producto a wishlist
+POST /api/v1/wishlist/products/:productId
+Headers: { "Authorization": "Bearer <user_token>" }
+
+// Eliminar producto de wishlist
+DELETE /api/v1/wishlist/products/:productId
+Headers: { "Authorization": "Bearer <user_token>" }
 ```
 
 ### Procesar Pago (Payments Module)
@@ -1449,32 +1594,43 @@ enable2FA() { ... }
 ### Total de Endpoints Disponibles
 
 ```
-📊 API Endpoints Summary (Total: 45 endpoints)
+📊 API Endpoints Summary (Total: 60 endpoints)
 
-┌─────────────────┬──────────┬────────────────────────────────┐
-│ Módulo          │ Cantidad │ Principales Funcionalidades    │
-├─────────────────┼──────────┼────────────────────────────────┤
-│ Auth            │    15    │ Register, Login, 2FA, Refresh  │
-│ Users           │     8    │ Profile, Addresses, GDPR       │
-│ Products        │     8    │ CRUD, Categories, Stock        │
-│ Orders          │     4    │ Checkout, History, Cancel      │
-│ Payments        │     3    │ Stripe Intent, Refund          │
-│ Media           │     3    │ Upload, Delete, Signed URL     │
-│ Notifications   │     2    │ Email, Status                  │
-│ Health          │     1    │ Health Check                   │
-│ Webhooks        │     1    │ Stripe Webhook                 │
-└─────────────────┴──────────┴────────────────────────────────┘
+┌─────────────────┬──────────┬────────────────────────────────────────────┐
+│ Módulo          │ Cantidad │ Principales Funcionalidades               │
+├─────────────────┼──────────┼────────────────────────────────────────────┤
+│ Auth            │    16    │ Register, Login, 2FA, Refresh, Verify     │
+│ Users           │    10    │ Profile, Addresses, GDPR, Admin (roles)   │
+│ Products        │     9    │ CRUD, Categories, Stock, Search           │
+│ Orders          │     6    │ Checkout, History, Cancel, Admin Status   │
+│ Cart            │     5    │ Add, Update, Remove, Clear                │
+│ Payments        │     3    │ Stripe Intent, Refund                     │
+│ Reviews         │     3    │ Create, List, Delete                      │
+│ Wishlist        │     3    │ List, Add, Remove                         │
+│ Media           │     3    │ Upload, Delete, Signed URL                │
+│ Notifications   │     2    │ Email, Status                             │
+│ Health          │     1    │ Health Check                              │
+│ Webhooks        │     1    │ Stripe Webhook                            │
+└─────────────────┴──────────┴────────────────────────────────────────────┘
 
 Métodos HTTP utilizados:
-• GET: 19 endpoints (consultas)
-• POST: 18 endpoints (creación, acciones)
-• PATCH: 5 endpoints (actualizaciones parciales)
-• DELETE: 3 endpoints (eliminación)
+• GET:    21 endpoints (consultas)
+• POST:   23 endpoints (creación, acciones)
+• PATCH:   8 endpoints (actualizaciones parciales)
+• DELETE:  8 endpoints (eliminación)
 
 Autenticación:
-• Públicos: 7 endpoints (health, login, register, productos)
-• Protegidos (JWT): 36 endpoints
-• Admin only: 8 endpoints (crear productos, usuarios, etc.)
+• Públicos: 13 endpoints (health, login, register, productos, reviews, search)
+• Protegidos (JWT): 47 endpoints
+• Admin / Seller: 12 endpoints (órdenes admin, usuarios, media, productos, notificaciones)
+
+Roles del sistema:
+• customer     → Comprador estándar
+• seller       → Vendedor (marketplace)
+• admin        → Administrador con permisos amplios
+• super_admin  → Administrador con acceso total
+• developer    → Desarrollador con acceso técnico
+• support      → Soporte técnico con permisos limitados
 ```
 
 ---

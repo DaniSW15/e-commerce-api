@@ -112,6 +112,13 @@ export class OrdersService {
     });
   }
 
+  async findAll(): Promise<Order[]> {
+    return this.orderRepository.find({
+      relations: { orderItems: true },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const order = await this.findById(id);
 
@@ -126,9 +133,9 @@ export class OrdersService {
     return await this.orderRepository.save(order);
   }
 
-  async cancel(id: string, userId: string): Promise<Order> {
+  async cancel(id: string, userId: string, isAdmin = false): Promise<Order> {
     const order = await this.findById(id);
-    if (order.userId !== userId)
+    if (order.userId !== userId && !isAdmin)
       throw new BadRequestException('You can only cancel your own orders');
 
     if (order.orderStatus !== OrderStatus.PENDING)

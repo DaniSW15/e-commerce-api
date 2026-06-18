@@ -14,7 +14,10 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '@/common/decorators';
+import { CurrentUser, Roles } from '@/common/decorators';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { UserRole } from '@/common/enums';
+import { OrderStatus } from './entities/order.entity';
 
 @ApiTags('orders')
 @Controller('orders')
@@ -22,6 +25,14 @@ import { CurrentUser } from '@/common/decorators';
 @ApiBearerAuth('JWT-auth')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Get('admin')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER)
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get all orders in the system (Admins/Sellers only)' })
+  async findAll() {
+    return this.ordersService.findAll();
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new order' })
@@ -40,10 +51,15 @@ export class OrdersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get order by ID' })
-  async findById(@CurrentUser('id') userId: string, @Param('id') id: string) {
+  async findById(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Param('id') id: string,
+  ) {
     const order = await this.ordersService.findById(id);
-    // Vertificar que la orden pertenece al usuario
-    if (order.userId !== userId) {
+    const isAdmin = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER].includes(role);
+    // Verificar que la orden pertenece al usuario o que el solicitante es admin/seller
+    if (order.userId !== userId && !isAdmin) {
       throw new NotFoundException('Order not found');
     }
     return order;
@@ -52,7 +68,24 @@ export class OrdersController {
   @Patch(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel an order' })
-  async cancel(@CurrentUser('id') userId: string, @Param('id') id: string) {
-    return this.ordersService.cancel(id, userId);
+  async cancel(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Param('id') id: string,
+  ) {
+    const isAdmin = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER].includes(role);
+    return this.ordersService.cancel(id, userId, isAdmin);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER)
+  @UseGuards(RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update order status (Admins/Sellers only)' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: OrderStatus,
+  ) {
+    return this.ordersService.updateStatus(id, status);
   }
 }
