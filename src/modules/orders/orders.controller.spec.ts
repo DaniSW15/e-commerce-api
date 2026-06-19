@@ -84,9 +84,9 @@ describe('OrdersController', () => {
       const order = { id: 'o-1', userId: 'other-user' };
       service.findById.mockResolvedValueOnce(order);
 
-      await expect(controller.findById('u-1', UserRole.CUSTOMER, 'o-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findById('u-1', UserRole.CUSTOMER, 'o-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

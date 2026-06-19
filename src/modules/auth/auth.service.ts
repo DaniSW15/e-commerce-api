@@ -46,7 +46,7 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
-  ) { }
+  ) {}
 
   // ==================== REGISTRO ====================
   async register(registerDto: RegisterDto) {

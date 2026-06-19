@@ -23,7 +23,6 @@ describe('CartService', () => {
   let cartRepo: ReturnType<typeof mockRepository>;
   let cartItemRepo: ReturnType<typeof mockRepository>;
   let productsService: jest.Mocked<any>;
-  let dataSource: jest.Mocked<any>;
 
   beforeEach(async () => {
     const mockProductsService = {
@@ -50,7 +49,6 @@ describe('CartService', () => {
     cartRepo = module.get(getRepositoryToken(Cart));
     cartItemRepo = module.get(getRepositoryToken(CartItem));
     productsService = module.get(ProductsService);
-    dataSource = module.get(DataSource);
   });
 
   it('should be defined', () => {

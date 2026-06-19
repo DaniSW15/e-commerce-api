@@ -27,9 +27,16 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get('admin')
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.SELLER,
+  )
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Get all orders in the system (Admins/Sellers only)' })
+  @ApiOperation({
+    summary: 'Get all orders in the system (Admins/Sellers only)',
+  })
   async findAll() {
     return this.ordersService.findAll();
   }
@@ -57,7 +64,12 @@ export class OrdersController {
     @Param('id') id: string,
   ) {
     const order = await this.ordersService.findById(id);
-    const isAdmin = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER].includes(role);
+    const isAdmin = [
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+      UserRole.DEVELOPER,
+      UserRole.SELLER,
+    ].includes(role);
     // Verificar que la orden pertenece al usuario o que el solicitante es admin/seller
     if (order.userId !== userId && !isAdmin) {
       throw new NotFoundException('Order not found');
@@ -73,12 +85,22 @@ export class OrdersController {
     @CurrentUser('role') role: UserRole,
     @Param('id') id: string,
   ) {
-    const isAdmin = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER].includes(role);
+    const isAdmin = [
+      UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+      UserRole.DEVELOPER,
+      UserRole.SELLER,
+    ].includes(role);
     return this.ordersService.cancel(id, userId, isAdmin);
   }
 
   @Patch(':id/status')
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DEVELOPER, UserRole.SELLER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.SELLER,
+  )
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update order status (Admins/Sellers only)' })
